@@ -1,4 +1,5 @@
-import { createAI } from 'agents';
+import { DurableObject } from 'cloudflare:workers';
+import type { DurableObjectState } from 'cloudflare:workers';
 
 // -----------------------------------------------------------------------------
 // Tipos
@@ -7,7 +8,6 @@ interface Env {
   USER_SESSION: DurableObjectNamespace;
   ARTEFACTOOL: DurableObjectNamespace;
   VAULT: DurableObjectNamespace;
-  LOADER: WorkerLoader;
   AI: any;
   ASSETS: Fetcher;
 }
@@ -67,7 +67,7 @@ export class UserSessionDO extends DurableObject<Env> {
         }
         this.ctx.storage.sql.exec(
           'INSERT INTO messages (role, content, created_at) VALUES (?, ?, ?)',
-          [body.role, body.content, Date.now()]
+          body.role, body.content, Date.now()
         );
         return Response.json({ ok: true });
       } catch {
@@ -100,7 +100,7 @@ export class UserSessionDO extends DurableObject<Env> {
         await stub.fetch('https://internal/artefactool/init', { method: 'POST' });
         this.ctx.storage.sql.exec(
           'INSERT OR REPLACE INTO artefactools (instance_id, name, created_at) VALUES (?, ?, ?)',
-          [id.toString(), body.name, Date.now()]
+          id.toString(), body.name, Date.now()
         );
         return Response.json({ ok: true, instance_id: id.toString(), name: body.name });
       } catch (e) {
@@ -127,7 +127,7 @@ export class ArtefactoolDO extends DurableObject<Env> {
     `);
     this.ctx.storage.sql.exec(
       'INSERT OR REPLACE INTO state (key, value, updated_at) VALUES (?, ?, ?)',
-      ['initialized', 'true', String(Date.now())]
+      'initialized', 'true', String(Date.now())
     );
   }
 
@@ -152,26 +152,11 @@ export class ArtefactoolDO extends DurableObject<Env> {
         }
         this.ctx.storage.sql.exec(
           'INSERT OR REPLACE INTO state (key, value, updated_at) VALUES (?, ?, ?)',
-          [body.key, String(body.value), String(Date.now())]
+          body.key, String(body.value), String(Date.now())
         );
         return Response.json({ ok: true });
       } catch {
         return Response.json({ ok: false, error: 'invalid json' }, { status: 400 });
-      }
-    }
-
-    if (url.pathname === '/v1/execute' && request.method === 'POST') {
-      // Ejecución aislada de código ligero vía Worker Loader (sandbox V8)
-      try {
-        const body = (await request.json()) as { code?: string };
-        if (!body.code) {
-          return Response.json({ ok: false, error: 'code required' }, { status: 400 });
-        }
-        const mod = await this.env.LOADER.load({ module: { text: body.code } });
-        const result = await mod.exports.default?.({});
-        return Response.json({ ok: true, result });
-      } catch (e) {
-        return Response.json({ ok: false, error: String(e) }, { status: 500 });
       }
     }
 
@@ -235,7 +220,7 @@ export class CredentialVaultDO extends DurableObject<Env> {
 
         const cursor = this.ctx.storage.sql.exec(
           'SELECT encrypted_value FROM credentials WHERE service = ?',
-          [body.service]
+          body.service
         );
         let cred: string | null = null;
         for (const row of cursor) {
@@ -280,7 +265,6 @@ export class CredentialVaultDO extends DurableObject<Env> {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    const ai = createAI({ binding: env.AI, gateway: 'default' });
 
     // Health check
     if (url.pathname === '/health') {
@@ -288,10 +272,19 @@ export default {
     }
 
     // /api/* → sesión de usuario (UserSessionDO por usuario autenticado)
+    // Reescribe /api/... → /v1/... antes de proxear al Durable Object
     if (url.pathname.startsWith('/api/')) {
       const sessionId = env.USER_SESSION.idFromName('default-user');
       const stub = env.USER_SESSION.get(sessionId);
-      return stub.fetch(request);
+      const reqUrl = new URL(request.url);
+      reqUrl.pathname = '/v1' + reqUrl.pathname.slice('/api'.length);
+      const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
+      const proxied = new Request(reqUrl.toString(), {
+        method: request.method,
+        headers: request.headers,
+        body: body !== undefined ? body : undefined,
+      });
+      return stub.fetch(proxied);
     }
 
     // /agents/* → artefactools (Durable Objects por herramienta)
@@ -303,7 +296,12 @@ export default {
       // Reescribir path para el DO
       const reqUrl = new URL(request.url);
       reqUrl.pathname = '/' + seg.slice(2).join('/') || '/';
-      const proxied = new Request(reqUrl.toString(), request);
+      const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
+      const proxied = new Request(reqUrl.toString(), {
+        method: request.method,
+        headers: request.headers,
+        body: body !== undefined ? body : undefined,
+      });
       return stub.fetch(proxied);
     }
 
@@ -311,7 +309,13 @@ export default {
     if (url.pathname.startsWith('/mcp/')) {
       const vaultId = env.VAULT.idFromName('default-vault');
       const stub = env.VAULT.get(vaultId);
-      return stub.fetch(request);
+      const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
+      const proxied = new Request(request.url, {
+        method: request.method,
+        headers: request.headers,
+        body: body !== undefined ? body : undefined,
+      });
+      return stub.fetch(proxied);
     }
 
     // Fallback: servir assets estáticos (frontend)

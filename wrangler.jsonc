@@ -25,6 +25,5 @@
     "ArtefactoolDO": { "type": "durable-object", "storage": "sqlite" },
     "CredentialVaultDO": { "type": "durable-object", "storage": "sqlite" }
   },
-  "worker_loaders": [{ "binding": "LOADER" }],
   "ai": { "binding": "AI" }
 }
