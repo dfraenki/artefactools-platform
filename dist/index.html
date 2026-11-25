@@ -31,7 +31,6 @@
     overflow:hidden;
   }
   a{color:var(--accent);text-decoration:none}
-  a:hover{text-decoration:underline}
   img{max-width:100%;display:block}
   .skip{position:absolute;left:-10000px}
   code{font-family:JetBrainsMono,monospace;font-size:11px;background:var(--surface);padding:1px 6px;border-radius:4px}
@@ -64,7 +63,6 @@
   .nav-item .icon{flex:none;width:20px;text-align:center;font-size:14px}
   .nav-item.kicker{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:default;padding:12px 14px 4px}
   .nav-item.kicker:hover{background:transparent;color:var(--muted)}
-  .divider{height:1px;background:var(--border);margin:8px 0}
 
   /* Main content */
   .main-header{padding:24px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.6)}
@@ -88,7 +86,7 @@
   .btn-ghost:hover{color:var(--ink);background:var(--surface)}
   .btn-sm{height:28px;padding:0 10px;font-size:12px}
 
-  /* Chat */
+  /* Chat - vacío por defecto */
   .chat-area{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;margin-bottom:24px}
   .chat-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10}
   .chat-avatar{flex:none;width:32px;height:32px;border-radius:8px;background:var(--accent-light);color:var(--accent);font-weight:800;font-size:14px;display:grid;place-items:center}
@@ -98,6 +96,8 @@
   .bubble{max-width:80%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.55}
   .bubble.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:2px}
   .bubble.them{background:var(--surface);color:var(--ink);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:2px}
+  .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);padding:60px 20px}
+  .chat-empty .icon{font-size:48px;margin-bottom:16px;opacity:0.3}
   .chat-input-area{padding:14px 20px;border-top:1px solid var(--border);background:var(--card);display:flex;gap:10;align-items:flex-end}
   .chat-input-area input{flex:1;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--ink);padding:10px 14px;font:inherit;font-size:13px}
   .chat-input-area input:focus{outline:none;border-color:var(--accent)}
@@ -114,6 +114,7 @@
   .right-item .meta{font-size:11px;color:var(--muted);margin-bottom:2px}
   .right-item .badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#dcfce7;color:#166534;margin-top:6px;display:inline-block}
   .right-item .badge.active{background:#dbeafe;color:#1e40af}
+  .divider{height:1px;background:var(--border);margin:16px 0}
 
   /* Footer */
   footer{border-top:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px}
@@ -147,7 +148,7 @@
   </header>
 
   <div class="app">
-    <!-- Sidebar izquierda: artefactools creados + historial de chats -->
+    <!-- Sidebar izquierda -->
     <aside class="app-sidebar">
       <div class="sidebar-section">
         <button class="nav-item" style="background:var(--surface);color:var(--ink);border-color:var(--border)">
@@ -186,26 +187,23 @@
       </div>
     </aside>
 
-    <!-- Panel central: chat + herramientas -->
+    <!-- Panel central -->
     <section class="app-main">
       <header class="main-header">
-        <h1>Crea una micro-herramienta que analice el tráfico en edge y filtre bots con SQLite persistente (Durable Objects). Necesito métricas en tiempo real de peticiones bloqueadas y un interruptor de umbral para el scoring de confianza.</h1>
-        <p>Describe qué necesitas y el orquestador coordinará las artefactools para construirlo.</p>
+        <h1>Orquestador de sesión</h1>
+        <p>Escribe un mensaje y el orquestador coordinará las artefactools activas.</p>
       </header>
       <div class="main-body">
-        <div class="prompt-bubble">
-          Crea una micro-herramienta que analice el tráfico en edge y filtre bots con SQLite persistente (Durable Objects). Necesito métricas en tiempo real de peticiones bloqueadas y un interruptor de umbral para el scoring de confianza.
-        </div>
-
         <div class="chat-area" id="chat-area">
           <div class="chat-header">
             <div class="chat-avatar">A</div>
             <div class="chat-title">artefacbot</div>
-            <div class="chat-meta">Pensado / Construido en 1.4s ▾</div>
+            <div class="chat-meta">Nuevo hilo</div>
           </div>
           <div class="chat-messages" id="chat-msgs">
-            <div class="bubble them">
-              He ensamblado la micro-aplicación completa. El componente analiza los headers <code>cf-connecting-ip</code>, calcula un vector de riesgo heurístico y almacena los hashes de sesión en SQLite persistente en el edge.
+            <div class="chat-empty">
+              <div class="icon">💬</div>
+              <div>Sin mensajes aún. Escribe algo para empezar.</div>
             </div>
           </div>
           <div class="chat-input-area">
@@ -213,7 +211,7 @@
               <button class="chat-tool" title="Adjuntar">📎</button>
               <button class="chat-tool" title="Historia">⟲</button>
             </div>
-            <input id="chat-input" placeholder="Escribe un mensaje a artefacbot (ej. 'Añade un endpoint Prometheus' o 'Conecta un MCP de GitHub')..." autocomplete="off">
+            <input id="chat-input" placeholder="Escribe un mensaje a artefacbot…" autocomplete="off">
             <div class="model-pill">Llama 3.3 70B</div>
             <button class="btn btn-primary btn-sm" id="chat-send">▲</button>
           </div>
@@ -234,7 +232,7 @@
       </div>
     </section>
 
-    <!-- Sidebar derecha: estado, endpoints, MCP, Durable Objects -->
+    <!-- Sidebar derecha -->
     <aside class="app-right">
       <div class="right-section">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -296,6 +294,8 @@
         el.className = 'bubble ' + kind;
         el.innerHTML = text;
         el.classList.add('fade-in');
+        const empty = chatMsgs.querySelector('.chat-empty');
+        if(empty) empty.remove();
         chatMsgs.appendChild(el);
         chatMsgs.scrollTop = chatMsgs.scrollHeight;
         return el;
