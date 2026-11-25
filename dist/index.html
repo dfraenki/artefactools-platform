@@ -31,6 +31,7 @@
     overflow:hidden;
   }
   a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
   img{max-width:100%;display:block}
   .skip{position:absolute;left:-10000px}
   code{font-family:JetBrainsMono,monospace;font-size:11px;background:var(--surface);padding:1px 6px;border-radius:4px}
@@ -69,22 +70,6 @@
   .main-header h1{font-size:16px;font-weight:700;color:var(--ink)}
   .main-header p{font-size:13px;color:var(--muted);margin-top:4px}
   .main-body{flex:1;overflow-y:auto;padding:24px;background:var(--surface)}
-  .prompt-bubble{background:#eef2ff;border:1px solid #dbe3f6;border-radius:12px;padding:18px 20px;margin-bottom:24px;font-size:14px;color:var(--ink)}
-  .artifact-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px}
-  .artifact-icon{flex:none;width:40px;height:40px;border-radius:10px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-size:20px}
-  .artifact-info{flex:1}
-  .artifact-info h3{font-size:15px;font-weight:700;margin-bottom:4px}
-  .artifact-info p{font-size:12px;color:var(--muted)}
-  .artifact-badge{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;border-radius:6px;background:#dcfce7;color:#166534}
-  .artifact-actions{display:flex;gap:8}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6;height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;transition:transform .1s,border-color .2s,box-shadow .2s}
-  .btn:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-  .btn:active{transform:translateY(1px)}
-  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn-primary:hover{background:#e86a2c;border-color:#e86a2c}
-  .btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
-  .btn-ghost:hover{color:var(--ink);background:var(--surface)}
-  .btn-sm{height:28px;padding:0 10px;font-size:12px}
 
   /* Chat - vacío por defecto */
   .chat-area{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;margin-bottom:24px}
@@ -105,6 +90,22 @@
   .chat-tool{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px}
   .chat-tool:hover{border-color:var(--accent);color:var(--accent)}
   .model-pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+
+  /* Repo Virtualizer view */
+  .virtualizer-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+  .virtualizer-card h3{font-size:17px;font-weight:700;margin-bottom:12px}
+  .virtualizer-form{display:flex;gap:10;margin-bottom:20px}
+  .virtualizer-form input{flex:1;padding:12px 16px;border-radius:8px;border:1px solid var(--border);color:var(--ink);font:inherit;font-size:13px}
+  .virtualizer-form input:focus{outline:none;border-color:var(--accent)}
+  .repos-table{width:100%;border-collapse:collapse;font-size:13px}
+  .repos-table th{text-align:left;color:var(--muted);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+  .repos-table td{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .repos-table tr:hover td{background:var(--surface)}
+  .status-badge{font-size:10px;font-weight:800;padding:4px 8px;border-radius:6px}
+  .status-building{background:#fef3c7;color:#92400e}
+  .status-running{background:#dcfce7;color:#166534}
+  .status-failed{background:#fee2e2;color:#991b1b}
+  .logs-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px;max-height:200px;overflow-y:auto;font-family:JetBrainsMono,monospace;font-size:11px;color:var(--muted)}
 
   /* Right panel */
   .right-section{padding:20px}
@@ -157,65 +158,89 @@
         </button>
       </div>
       <div class="sidebar-section">
-        <div class="nav-item kicker">ARTEFACTOOLS CREADOS</div>
-        <button class="nav-item active live" id="nav-edgeguard">
-          <span class="icon">🛡️</span>
-          <span>EdgeGuard Bot Filter</span>
-          <span style="margin-left:auto" class="badge-small">LIVE</span>
-        </button>
-        <button class="nav-item" id="nav-stripe">
-          <span class="icon">🔗</span> Stripe Webhook Sync
-        </button>
-        <button class="nav-item" id="nav-github">
-          <span class="icon">📦</span> GitHub Repo Virtualizer
-        </button>
+        <div class="nav-item kicker">ARTEFACTOOLS CREADAS</div>
+        <div id="artefactools-list">
+          <div style="font-size:12px;color:var(--muted);padding:8px 0">Ninguna aún. Pega una URL de GitHub en el chat para crear una.</div>
+        </div>
       </div>
       <div class="sidebar-section">
         <div class="nav-item kicker">HISTORIAL DE CHATS</div>
-        <div style="font-size:12px;color:var(--muted);padding:8px 14px">Sin chats aún. Crea uno con el botón de arriba.</div>
+        <div style="font-size:12px;color:var(--muted);padding:8px 14px">Sin chats aún. Escribe algo para empezar.</div>
       </div>
     </aside>
 
     <!-- Panel central -->
     <section class="app-main">
       <header class="main-header">
-        <h1>Orquestador de sesión</h1>
-        <p>Escribe un mensaje y el orquestador coordinará las artefactools activas.</p>
+        <h1 id="main-title">Orquestador de sesión</h1>
+        <p id="main-subtitle">Escribe un mensaje y el orquestador coordinará las artefactools activas.</p>
       </header>
       <div class="main-body">
-        <div class="chat-area" id="chat-area">
-          <div class="chat-header">
-            <div class="chat-avatar">A</div>
-            <div class="chat-title">artefacbot</div>
-            <div class="chat-meta">Nuevo hilo</div>
-          </div>
-          <div class="chat-messages" id="chat-msgs">
-            <div class="chat-empty">
-              <div class="icon">💬</div>
-              <div>Sin mensajes aún. Escribe algo para empezar.</div>
+        <!-- Vista por defecto: chat -->
+        <div id="view-chat" class="view active">
+          <div class="chat-area" id="chat-area">
+            <div class="chat-header">
+              <div class="chat-avatar">A</div>
+              <div class="chat-title">artefacbot</div>
+              <div class="chat-meta">Nuevo hilo</div>
+            </div>
+            <div class="chat-messages" id="chat-msgs">
+              <div class="chat-empty">
+                <div class="icon">💬</div>
+                <div>Sin mensajes aún. Escribe algo para empezar.</div>
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <div class="chat-tools">
+                <button class="chat-tool" title="Adjuntar">📎</button>
+                <button class="chat-tool" title="Historia">⟲</button>
+              </div>
+              <input id="chat-input" placeholder="Escribe un mensaje a artefacbot… (ej. 'virtualiza https://github.com/usuario/repo')" autocomplete="off">
+              <div class="model-pill">Llama 3.3 70B</div>
+              <button class="btn btn-primary btn-sm" id="chat-send">▲</button>
             </div>
           </div>
-          <div class="chat-input-area">
-            <div class="chat-tools">
-              <button class="chat-tool" title="Adjuntar">📎</button>
-              <button class="chat-tool" title="Historia">⟲</button>
+
+          <div class="artifact-card">
+            <div class="artifact-icon">🛡️</div>
+            <div class="artifact-info">
+              <h3>EdgeGuard Lite // Bot Filter</h3>
+              <p>https://edgeguard.tools.workers.dev/v1/in...</p>
             </div>
-            <input id="chat-input" placeholder="Escribe un mensaje a artefacbot…" autocomplete="off">
-            <div class="model-pill">Llama 3.3 70B</div>
-            <button class="btn btn-primary btn-sm" id="chat-send">▲</button>
+            <span class="artifact-badge">SQLITE DO</span>
+            <div class="artifact-actions">
+              <button class="btn btn-ghost btn-sm">Abir Visor</button>
+              <button class="btn btn-primary btn-sm">Desplegar</button>
+            </div>
           </div>
         </div>
 
-        <div class="artifact-card">
-          <div class="artifact-icon">🛡️</div>
-          <div class="artifact-info">
-            <h3>EdgeGuard Lite // Bot Filter</h3>
-            <p>https://edgeguard.tools.workers.dev/v1/in...</p>
-          </div>
-          <span class="artifact-badge">SQLITE DO</span>
-          <div class="artifact-actions">
-            <button class="btn btn-ghost btn-sm">Abir Visor</button>
-            <button class="btn btn-primary btn-sm">Desplegar</button>
+        <!-- Vista: Repo Virtualizer -->
+        <div id="view-virtualizer" class="view hidden">
+          <div class="virtualizer-card">
+            <h3>Repo Virtualizer — GitHub-to-App</h3>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Pega la URL de cualquier repositorio público de GitHub. Se creará una instancia aislada en un Durable Object que permanece durmiente hasta que la uses.</p>
+            <div class="virtualizer-form">
+              <input id="repo-url" placeholder="https://github.com/usuario/repositorio" autocomplete="off">
+              <button class="btn btn-primary" id="btn-virtualize">Virtualizar</button>
+            </div>
+            <div style="margin-bottom:16px">
+              <table class="repos-table">
+                <thead>
+                  <tr>
+                    <th>Repositorio</th>
+                    <th>Estado</th>
+                    <th>Durable Object</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="repos-tbody"></tbody>
+              </table>
+            </div>
+            <div id="virtualizer-logs" class="logs-box hidden">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Logs de ejecución</div>
+              <div id="logs-content"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -277,7 +302,51 @@
       const chatInput = document.getElementById('chat-input');
       const chatSend = document.getElementById('chat-send');
       const chatMsgs = document.getElementById('chat-msgs');
+      const viewChat = document.getElementById('view-chat');
+      const viewVirtualizer = document.getElementById('view-virtualizer');
+      const mainTitle = document.getElementById('main-title');
+      const mainSubtitle = document.getElementById('main-subtitle');
+      const artefactoolsList = document.getElementById('artefactools-list');
 
+      // ---------- Navegación de vistas ----------
+      function showView(name){
+        viewChat.classList.add('hidden');
+        viewVirtualizer.classList.add('hidden');
+        if(name==='chat'){ viewChat.classList.remove('hidden'); mainTitle.textContent='Orquestador de sesión'; mainSubtitle.textContent='Escribe un mensaje y el orquestador coordinará las artefactools activas.'; }
+        if(name==='virtualizer'){ viewVirtualizer.classList.remove('hidden'); mainTitle.textContent='Repo Virtualizer'; mainSubtitle.textContent='Convierte cualquier repositorio de GitHub en una aplicación aislada en un Durable Object.'; loadRepos(); }
+      }
+
+      document.getElementById('nav-nuevo-hilo').addEventListener('click', function(){
+        document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+        this.classList.add('active');
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.innerHTML = '<div class="icon">💬</div><div>Nuevo hilo iniciado. Escribe tu primer mensaje.</div>';
+        chatMsgs.innerHTML = '';
+        chatMsgs.appendChild(empty);
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        showView('chat');
+      });
+
+      document.getElementById('nav-edgeguard').addEventListener('click', function(){
+        document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+        this.classList.add('active');
+        showView('chat');
+      });
+
+      document.getElementById('nav-stripe').addEventListener('click', function(){
+        document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+        this.classList.add('active');
+        showView('chat');
+      });
+
+      document.getElementById('nav-github-virtualizer').addEventListener('click', function(){
+        document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+        this.classList.add('active');
+        showView('virtualizer');
+      });
+
+      // ---------- Chat ----------
       function addBubble(text, kind){
         const el = document.createElement('div');
         el.className = 'bubble ' + kind;
@@ -306,6 +375,7 @@
           if(d.ok && d.reply){
             setTimeout(function(){
               addBubble(d.reply, 'them');
+              loadArtefactools();
             }, 400);
           } else {
             addBubble('Error: ' + (d.error || 'desconocido'), 'them');
@@ -323,28 +393,136 @@
         if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); }
       });
 
-      document.querySelectorAll('.nav-item').forEach(function(item){
-        item.addEventListener('click', function(){
-          document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
-          item.classList.add('active');
-        });
+      // ---------- Sidebar artefactools ----------
+      async function loadArtefactools(){
+        try{
+          const r = await fetch(base + '/api/artefactools');
+          const d = await r.json();
+          const items = d.items || [];
+          if(items.length===0){
+            artefactoolsList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Ninguna aún. Pega una URL de GitHub en el chat para crear una.</div>';
+            return;
+          }
+          artefactoolsList.innerHTML = '';
+          items.forEach(a=>{
+            const el = document.createElement('div');
+            el.className = 'nav-item';
+            el.innerHTML = '<span class="icon">📦</span><span>'+escapeHtml(a.name)+'</span>';
+            el.onclick = function(){
+              openArtefactool(a.name);
+            };
+            artefactoolsList.appendChild(el);
+          });
+        }catch(e){
+          artefactoolsList.innerHTML = '<div style="font-size:12px;color:var(--danger);padding:8px 0">Error cargando artefactools.</div>';
+        }
+      }
+
+      async function openArtefactool(name){
+        const r = confirm('¿Abrir la aplicación virtualizada "' + name + '" en una nueva pestaña?');
+        if(r){
+          window.open(base + '/agents/' + encodeURIComponent(name) + '/v1/state', '_blank');
+        }
+      }
+
+      // ---------- Repo Virtualizer ----------
+      const repoUrlInput = document.getElementById('repo-url');
+      const btnVirtualize = document.getElementById('btn-virtualize');
+      const reposTbody = document.getElementById('repos-tbody');
+      const logsBox = document.getElementById('virtualizer-logs');
+      const logsContent = document.getElementById('logs-content');
+      let selectedRepoName = null;
+
+      async function loadRepos(){
+        try{
+          const r = await fetch(base + '/api/artefactools');
+          const d = await r.json();
+          const items = d.items || [];
+          reposTbody.innerHTML = '';
+          if(items.length===0){
+            reposTbody.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--muted)">No hay repositorios virtualizados aún.</td></tr>';
+            return;
+          }
+          items.forEach(a=>{
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td><strong>${escapeHtml(a.name)}</strong></td>
+              <td><span class="status-badge status-running">running</span></td>
+              <td style="font-size:11px;font-family:JetBrainsMono,monospace">${a.instance_id.slice(0,12)}…</td>
+              <td><button class="btn btn-sm btn-ghost" onclick="openRepo('${escapeHtml(a.name)}')">Abrir app</button></td>
+            `;
+            reposTbody.appendChild(tr);
+          });
+        }catch(e){
+          reposTbody.innerHTML = '<tr><td colspan="4" style="padding:24px;text-align:center;color:var(--danger)">Error cargando repositorios.</td></tr>';
+        }
+      }
+
+      async function virtualizeRepo(){
+        const url = repoUrlInput.value.trim();
+        if(!url) return;
+        const match = url.match(/github\.com[:/]([^\/]+)\/([^\/]+?)(?:\.git)?$/);
+        if(!match){
+          alert('URL de GitHub inválida');
+          return;
+        }
+        const name = 'repo-' + match[1] + '-' + match[2];
+        btnVirtualize.disabled = true;
+        btnVirtualize.textContent = 'Virtualizando…';
+        try{
+          const r = await fetch(base + '/agents/' + encodeURIComponent(name) + '/v1/virtualize', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({repo_url: url})
+          });
+          const d = await r.json();
+          if(d.ok){
+            repoUrlInput.value = '';
+            selectedRepoName = name;
+            showRepoDetails(name);
+            loadRepos();
+          } else {
+            alert('Error: ' + (d.error || 'desconocido'));
+          }
+        }catch(e){
+          alert('Error de red: ' + e.message);
+        }finally{
+          btnVirtualize.disabled = false;
+          btnVirtualize.textContent = 'Virtualizar';
+        }
+      }
+
+      async function showRepoDetails(name){
+        selectedRepoName = name;
+        try{
+          const r = await fetch(base + '/agents/' + encodeURIComponent(name) + '/v1/state');
+          const d = await r.json();
+          logsContent.textContent = JSON.stringify(d.state || {}, null, 2);
+          logsBox.classList.remove('hidden');
+        }catch(e){
+          logsContent.textContent = 'Error cargando estado: ' + e.message;
+          logsBox.classList.remove('hidden');
+        }
+      }
+
+      window.openRepo = function(name){
+        selectedRepoName = name;
+        const r = confirm('¿Abrir la aplicación virtualizada ' + name + ' en una nueva pestaña?');
+        if(r){
+          window.open(base + '/agents/' + encodeURIComponent(name) + '/v1/state', '_blank');
+        }
+      };
+
+      btnVirtualize.addEventListener('click', virtualizeRepo);
+      repoUrlInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter') virtualizeRepo();
       });
 
-      // Nuevo hilo: limpia el chat y deja el input listo
-      document.getElementById('nav-nuevo-hilo').addEventListener('click', function(){
-        document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
-        this.classList.add('active');
-        const empty = document.createElement('div');
-        empty.className = 'chat-empty';
-        empty.innerHTML = '<div class="icon">💬</div><div>Nuevo hilo iniciado. Escribe tu primer mensaje.</div>';
-        chatMsgs.innerHTML = '';
-        chatMsgs.appendChild(empty);
-        chatMsgs.scrollTop = chatMsgs.scrollHeight;
-        setStatus('Nuevo hilo iniciado.', true);
-      });
-
+      // ---------- Health ----------
       fetch(base + '/health').then(r=>r.json()).catch(()=>{});
+      loadArtefactools();
     })();
+    function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;" }[m]));}
   </script>
 </body>
 </html>

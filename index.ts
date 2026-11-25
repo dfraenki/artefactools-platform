@@ -706,8 +706,49 @@ export class UserSessionDO extends DurableObject {
       userMessage
     );
 
+    // Detectar si el usuario pide crear/virtualizar un repositorio de GitHub
+    const githubMatch = userMessage.match(/https?:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\.git)?(?:\/|$)/);
+    if (githubMatch) {
+      const repoUrl = githubMatch[0];
+      const owner = githubMatch[1];
+      const repo = githubMatch[2];
+      const artefactoolName = 'repo-' + owner + '-' + repo;
+
+      try {
+        // Llamada directa por Workers RPC al ArtefactoolDO (no fetch HTTP)
+        const stub = this.env.ARTEFACTOOL.idFromName(artefactoolName);
+        const artefactoolStub = this.env.ARTEFACTOOL.get(stub);
+        const result = await artefactoolStub.deployRepo({
+          repoUrl,
+          runtimeType: 'dynamic_worker',
+          entryPoint: 'index.js',
+        });
+
+        // Registrar la artefactool como activa en esta sesión
+        const id = crypto.randomUUID();
+        this.ctx.storage.sql.exec(
+          'INSERT OR REPLACE INTO active_artefactools (id, tool_name, do_binding_id, status) VALUES (?, ?, ?, ?)',
+          id, artefactoolName, artefactoolStub.id.toString(), 'active'
+        );
+
+        const reply = `✅ He creado la artefactool "${artefactoolName}" a partir del repositorio ${repoUrl}.\n\nEstado: ${result.status}\nInstancia Durable Object: ${result.appId}\n\nLa herramienta está aislada en su propio Durable Object con SQLite dedicado. Puedes acceder a su estado y MCP desde el panel lateral.`;
+        this.ctx.storage.sql.exec(
+          "INSERT INTO user_chat_history (role, content) VALUES ('assistant', ?)",
+          reply
+        );
+        return reply;
+      } catch (e) {
+        const reply = `❌ No se pudo crear la artefactool: ${String(e)}`;
+        this.ctx.storage.sql.exec(
+          "INSERT INTO user_chat_history (role, content) VALUES ('assistant', ?)",
+          reply
+        );
+        return reply;
+      }
+    }
+
     const response = await this.env.AI.run('@cf/mistral/mistral-7b-instruct-v0.1', {
-      prompt: `Eres el orquestador conversacional de artefactools.com. Responde al usuario y coordina sus herramientas: ${userMessage}`,
+      prompt: `Eres el orquestador conversacional de artefactools.com. Responde al usuario y coordina sus herramientas. Si el usuario menciona una URL de GitHub, puedes ofrecerle crear una artefactool aislada a partir de ese repositorio. Usuario dice: ${userMessage}`,
     });
 
     this.ctx.storage.sql.exec(
