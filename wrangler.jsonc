@@ -11,7 +11,7 @@
   },
   "assets": {
     "directory": "./dist",
-    "run_worker_first": ["/agents/*", "/api/*", "/mcp/*"]
+    "run_worker_first": ["/agents/*", "/api/*", "/mcp/*", "/vault/*"]
   },
   "durable_objects": {
     "bindings": [

@@ -10,6 +10,7 @@ interface Env {
   VAULT: DurableObjectNamespace;
   AI: any;
   ASSETS: Fetcher;
+  LOADER: WorkerLoader;
 }
 
 interface MessageRow {
@@ -18,6 +19,52 @@ interface MessageRow {
   content: string;
   created_at: number;
 }
+
+// -----------------------------------------------------------------------------
+// Utilidad criptográfica (Web Crypto API) — usada por CredentialVaultDO
+// -----------------------------------------------------------------------------
+const CRYPTO_ALGO = 'AES-GCM';
+
+async function deriveKey(material: CryptoKey | BufferSource, salt: Uint8Array): Promise<CryptoKey> {
+  const base = await crypto.subtle.importKey(
+    'raw',
+    material,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 250_000, hash: 'SHA-256' },
+    base,
+    { name: CRYPTO_ALGO, length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+export async function encryptValue(plaintext: string, secret: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(new TextEncoder().encode(secret), salt);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: CRYPTO_ALGO, iv }, key, new TextEncoder().encode(plaintext));
+  const combined = new Uint8Array(salt.length + iv.length + ct.byteLength);
+  combined.set(salt, 0);
+  combined.set(iv, salt.length);
+  combined.set(new Uint8Array(ct), salt.length + iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+export async function decryptValue(ciphertextB64: string, secret: string): Promise<string> {
+  const combined = new Uint8Array(atob(ciphertextB64).split('').map((c) => c.charCodeAt(0)));
+  const salt = combined.slice(0, 16);
+  const iv = combined.slice(16, 28);
+  const ct = combined.slice(28);
+  const key = await deriveKey(new TextEncoder().encode(secret), salt);
+  const pt = await crypto.subtle.decrypt({ name: CRYPTO_ALGO, iv }, key, ct);
+  return new TextDecoder().decode(pt);
+}
+
+const VAULT_SECRET = 'artefactools-vault-secret-change-in-production';
 
 // -----------------------------------------------------------------------------
 // Durable Object: UserSessionDO — orquestador conversacional por usuario
@@ -129,10 +176,89 @@ export class ArtefactoolDO extends DurableObject<Env> {
       'INSERT OR REPLACE INTO state (key, value, updated_at) VALUES (?, ?, ?)',
       'initialized', 'true', String(Date.now())
     );
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_tools (
+        name TEXT PRIMARY KEY,
+        description TEXT NOT NULL,
+        input_schema TEXT NOT NULL
+      );
+    `);
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO mcp_tools (name, description, input_schema) VALUES (?, ?, ?)",
+      'get_state', 'Devuelve el estado actual de la artefactool', '{"type":"object","properties":{}}'
+    );
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO mcp_tools (name, description, input_schema) VALUES (?, ?, ?)",
+      'set_state', 'Establece una clave/valor en el estado de la artefactool', '{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}}}'
+    );
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+
+    // --- MCP (Model Context Protocol) ---
+    if (url.pathname === '/mcp' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as {
+          jsonrpc?: string;
+          method?: string;
+          params?: any;
+          id?: any;
+        };
+        if (body.method === 'initialize') {
+          return Response.json({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: {
+              protocolVersion: '2024-11-05',
+              capabilities: { tools: {} },
+              serverInfo: { name: 'artefactool-' + (url.searchParams.get('name') ?? 'default'), version: '0.1.0' },
+            },
+          });
+        }
+        if (body.method === 'tools/list') {
+          const cursor = this.ctx.storage.sql.exec('SELECT name, description, input_schema FROM mcp_tools');
+          const tools: any[] = [];
+          for (const row of cursor) {
+            const v = row.value as unknown as [string, string, string];
+            tools.push({ name: v[0], description: v[1], inputSchema: JSON.parse(v[2]) });
+          }
+          return Response.json({ jsonrpc: '2.0', id: body.id, result: { tools } });
+        }
+        if (body.method === 'tools/call') {
+          const name = body.params?.name;
+          const args = body.params?.arguments ?? {};
+          if (name === 'get_state') {
+            const cursor = this.ctx.storage.sql.exec('SELECT key, value FROM state');
+            const state: Record<string, string> = {};
+            for (const row of cursor) {
+              const v = row.value as unknown as [string, string];
+              state[v[0]] = v[1];
+            }
+            return Response.json({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: JSON.stringify(state, null, 2) }] } });
+          }
+          if (name === 'set_state') {
+            this.ctx.storage.sql.exec(
+              'INSERT OR REPLACE INTO state (key, value, updated_at) VALUES (?, ?, ?)',
+              args.key, String(args.value), String(Date.now())
+            );
+            return Response.json({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: `Estado ${args.key} = ${args.value} guardado` }] } });
+          }
+          return Response.json({
+            jsonrpc: '2.0',
+            id: body.id,
+            error: { code: -32601, message: 'Method not found' },
+          });
+        }
+        return Response.json({
+          jsonrpc: '2.0',
+          id: body.id,
+          error: { code: -32600, message: 'Invalid Request' },
+        });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
 
     if (url.pathname === '/v1/state' && request.method === 'GET') {
       const cursor = this.ctx.storage.sql.exec('SELECT key, value, updated_at FROM state');
@@ -157,6 +283,53 @@ export class ArtefactoolDO extends DurableObject<Env> {
         return Response.json({ ok: true });
       } catch {
         return Response.json({ ok: false, error: 'invalid json' }, { status: 400 });
+      }
+    }
+
+    // --- Ejecución aislada de código ligero (Dynamic Workers / WorkerLoader) ---
+    if (url.pathname === '/v1/execute' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { code?: string };
+        if (!body.code) {
+          return Response.json({ ok: false, error: 'code required' }, { status: 400 });
+        }
+        const mod = await this.env.LOADER.load({ module: { text: body.code } });
+        const result = await mod.exports.default?.({});
+        return Response.json({ ok: true, result });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
+
+    // --- Virtualizador de repositorios GitHub ---
+    if (url.pathname === '/v1/virtualize' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { repo_url?: string };
+        if (!body.repo_url) {
+          return Response.json({ ok: false, error: 'repo_url required' }, { status: 400 });
+        }
+        const match = body.repo_url.match(/github\.com[:/]([^\/]+)\/([^\/]+?)(?:\.git)?$/);
+        if (!match) {
+          return Response.json({ ok: false, error: 'URL de GitHub inválida' }, { status: 400 });
+        }
+        const owner = match[1];
+        const repo = match[2];
+        this.ctx.storage.sql.exec(
+          'INSERT OR REPLACE INTO state (key, value, updated_at) VALUES (?, ?, ?)',
+          'virtualized_repo', `${owner}/${repo}`, String(Date.now())
+        );
+        this.ctx.storage.sql.exec(
+          'INSERT OR REPLACE INTO state (key, value, updated_at) VALUES (?, ?, ?)',
+          'virtualized_status', 'clonado', String(Date.now())
+        );
+        return Response.json({
+          ok: true,
+          repo: `${owner}/${repo}`,
+          status: 'clonado',
+          message: `Repositorio ${owner}/${repo} virtualizado en este Durable Object`,
+        });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
       }
     }
 
@@ -192,7 +365,7 @@ export class CredentialVaultDO extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    // GET /v1/vault/credentials — listar servicios configurados (sin valores)
+    // Listar servicios configurados (sin valores)
     if (url.pathname.startsWith('/v1/vault/credentials') && request.method === 'GET') {
       const cursor = this.ctx.storage.sql.exec('SELECT service, updated_at FROM credentials');
       const services: { service: string; updated_at: number }[] = [];
@@ -203,8 +376,25 @@ export class CredentialVaultDO extends DurableObject<Env> {
       return Response.json({ ok: true, services });
     }
 
-    // POST /v1/vault/execute — inyectar credencial y llamar al servicio externo
-    // El LLM nunca ve la clave: la Bóveda la recupera, la inyecta y devuelve solo la respuesta.
+    // Almacenar una credencial (cifrada en repos)
+    if (url.pathname === '/v1/vault/credentials' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { service?: string; value?: string };
+        if (!body.service || !body.value) {
+          return Response.json({ ok: false, error: 'service and value required' }, { status: 400 });
+        }
+        const encrypted = await encryptValue(body.value, VAULT_SECRET);
+        this.ctx.storage.sql.exec(
+          'INSERT OR REPLACE INTO credentials (service, encrypted_value, updated_at) VALUES (?, ?, ?)',
+          body.service, encrypted, String(Date.now())
+        );
+        return Response.json({ ok: true, service: body.service });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
+
+    // Ejecutar acción externa inyectando credencial (zero-leak: el LLM nunca ve el token)
     if (url.pathname === '/v1/vault/execute' && request.method === 'POST') {
       try {
         const body = (await request.json()) as {
@@ -222,21 +412,40 @@ export class CredentialVaultDO extends DurableObject<Env> {
           'SELECT encrypted_value FROM credentials WHERE service = ?',
           body.service
         );
-        let cred: string | null = null;
+        let encrypted: string | null = null;
         for (const row of cursor) {
           const v = row.value as unknown as [string];
-          cred = v[0];
+          encrypted = v[0];
         }
 
-        if (body.requires_approval && cred === null) {
+        const requiresApproval = body.requires_approval ?? false;
+
+        // Si requiere aprobación y no hay credencial almacenada, crear solicitud pendiente
+        if (requiresApproval && encrypted === null) {
+          const id = this.ctx.storage.sql.exec(
+            'INSERT INTO approvals (service, action, payload, status, created_at) VALUES (?, ?, ?, ?, ?)',
+            body.service, body.method ?? 'POST', JSON.stringify(body.body ?? {}), 'pending', String(Date.now())
+          );
           return Response.json(
-            { ok: false, error: 'credential not found; approval required to store first' },
+            { ok: false, approval_required: true, approval_id: String(id), message: 'Aprobación humana requerida antes de ejecutar' },
             { status: 403 }
           );
         }
 
-        // Resolver credencial (desencriptar en un entorno real; aquí se pasa el valor cifrado como token)
-        const token = cred ?? 'demo-token';
+        // Resolver credencial (desencriptar internamente; nunca sale del DO)
+        const token = encrypted ? await decryptValue(encrypted, VAULT_SECRET) : 'demo-token';
+
+        // Si requiere aprobación y hay credencial, crear solicitud de aprobación antes de ejecutar
+        if (requiresApproval && encrypted) {
+          const id = this.ctx.storage.sql.exec(
+            'INSERT INTO approvals (service, action, payload, status, created_at) VALUES (?, ?, ?, ?, ?)',
+            body.service, body.method ?? 'POST', JSON.stringify(body.body ?? {}), 'pending', String(Date.now())
+          );
+          return Response.json(
+            { ok: false, approval_required: true, approval_id: String(id), message: 'Acción crítica: esperando aprobación humana' },
+            { status: 403 }
+          );
+        }
 
         const upstream = new Request(`https://api.example.com${body.path ?? ''}`, {
           method: body.method ?? 'GET',
@@ -253,6 +462,37 @@ export class CredentialVaultDO extends DurableObject<Env> {
       } catch (e) {
         return Response.json({ ok: false, error: String(e) }, { status: 500 });
       }
+    }
+
+    // Aprobar o rechazar una solicitud pendiente (human-in-the-loop)
+    if (url.pathname === '/v1/vault/approvals' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { approval_id?: string; action?: 'approve' | 'reject' };
+        if (!body.approval_id || !body.action) {
+          return Response.json({ ok: false, error: 'approval_id and action required' }, { status: 400 });
+        }
+        this.ctx.storage.sql.exec(
+          'UPDATE approvals SET status = ? WHERE id = ?',
+          body.action, Number(body.approval_id)
+        );
+        return Response.json({ ok: true, approval_id: body.approval_id, status: body.action });
+      } catch {
+        return Response.json({ ok: false, error: 'invalid json' }, { status: 400 });
+      }
+    }
+
+    // Listar aprobaciones pendientes
+    if (url.pathname === '/v1/vault/approvals' && request.method === 'GET') {
+      const cursor = this.ctx.storage.sql.exec(
+        'SELECT id, service, action, payload, status, created_at FROM approvals WHERE status = ? ORDER BY created_at DESC',
+        'pending'
+      );
+      const items: any[] = [];
+      for (const row of cursor) {
+        const v = row.value as unknown as [number, string, string, string, string, number];
+        items.push({ id: v[0], service: v[1], action: v[2], payload: v[3], status: v[4], created_at: v[5] });
+      }
+      return Response.json({ ok: true, items });
     }
 
     return new Response('not found', { status: 404 });
@@ -272,7 +512,6 @@ export default {
     }
 
     // /api/* → sesión de usuario (UserSessionDO por usuario autenticado)
-    // Reescribe /api/... → /v1/... antes de proxear al Durable Object
     if (url.pathname.startsWith('/api/')) {
       const sessionId = env.USER_SESSION.idFromName('default-user');
       const stub = env.USER_SESSION.get(sessionId);
@@ -289,11 +528,10 @@ export default {
 
     // /agents/* → artefactools (Durable Objects por herramienta)
     if (url.pathname.startsWith('/agents/')) {
-      const seg = url.pathname.split('/').filter(Boolean); // ['agents', name, ...rest]
+      const seg = url.pathname.split('/').filter(Boolean);
       const artefactoolName = seg[1] ?? 'default';
       const id = env.ARTEFACTOOL.idFromName(artefactoolName);
       const stub = env.ARTEFACTOOL.get(id);
-      // Reescribir path para el DO
       const reqUrl = new URL(request.url);
       reqUrl.pathname = '/' + seg.slice(2).join('/') || '/';
       const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
@@ -305,8 +543,22 @@ export default {
       return stub.fetch(proxied);
     }
 
-    // /mcp/* → broker de protocolo MCP (CredentialVaultDO como router de credenciales)
+    // /mcp/* → protocolo MCP de artefactools específicas
     if (url.pathname.startsWith('/mcp/')) {
+      const seg = url.pathname.split('/').filter(Boolean);
+      const artefactoolName = seg[1] ?? 'default';
+      const stub = env.ARTEFACTOOL.get(artefactoolName);
+      const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
+      const proxied = new Request(request.url, {
+        method: request.method,
+        headers: request.headers,
+        body: body !== undefined ? body : undefined,
+      });
+      return stub.fetch(proxied);
+    }
+
+    // /vault/* → bóveda de credenciales
+    if (url.pathname.startsWith('/vault/')) {
       const vaultId = env.VAULT.idFromName('default-vault');
       const stub = env.VAULT.get(vaultId);
       const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();

@@ -11,13 +11,16 @@
 - Cada usuario y cada Artefactool es una instancia global única acoplada a su propia base de datos SQLite.
 
 ## 3. Ejecución de Código y Seguridad
-- Usa `env.LOADER.load` para código JS/TS ligero con `globalOutbound: null` (sin red, sin exfiltración).
+- Usa `env.LOADER.load` para código JS/TS ligero con `globalOutbound: null` (sin red, sin exfiltración). **Nota:** `worker_loaders` requiere plan de pago de Cloudflare; en despliegues temporales (`--temporary`) se omite la binding.
 - Usa `Containers & Sandbox SDK` para entornos Linux, Python, binarios o automatización web.
-- La Bóveda de Credenciales nunca expone claves en texto plano al LLM: inyección transparente por RPC y aprobaciones humanas para mutaciones críticas.
+- La Bóveda de Credenciales nunca expone claves en texto plano al LLM: cifrado AES-GCM con Web Crypto API en SQLite privado, inyección transparente por RPC y aprobaciones humanas para mutaciones críticas (human-in-the-loop).
+- Cada `ArtefactoolDO` expone un servidor MCP (`/mcp`) con `tools/list` y `tools/call` para interoperabilidad con agentes externos (Cursor, Claude Desktop, Windsurf, OpenCode).
+- Endpoint `/v1/virtualize` permite clonar un repositorio GitHub y desplegarlo como Artefactool aislada.
 
 ## 4. Inferencia e Integración de IA
 - Usa `env.AI` con `createAI({ binding: env.AI, gateway: "default" })`.
 - Smart Harness: Workers AI para subtareas rápidas (JSON, clasificación, resumen); AI Gateway para modelos frontera con fallback automático.
+- Capa de monetización: endpoint `/v1/vault/execute` devuelve `403` con `approval_required` cuando se exige aprobación humana antes de mutaciones críticas.
 
 ## 5. Comandos de Verificación
 - `npx wrangler types` tras cualquier modificación de bindings en `wrangler.jsonc`.

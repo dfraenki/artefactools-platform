@@ -22,7 +22,7 @@
     --danger:#f87171;
     --radius:12px;
     --shadow:0 20px 40px -10px rgba(0,0,0,0.5);
-    --maxw:960px;
+    --maxw:1200px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{-webkit-font-smoothing:antialiased}
@@ -32,12 +32,13 @@
     font-family:Inter,system-ui,sans-serif;
     line-height:1.55;
     min-height:100vh;
+    overflow:hidden;
   }
   a{color:var(--accent-2);text-decoration:none}
   a:hover{text-decoration:underline}
   img{max-width:100%;display:block}
-  .container{max-width:var(--maxw);margin:0 auto;padding:0 24px}
   .skip{position:absolute;left:-10000px}
+  .container{max-width:var(--maxw);margin:0 auto;padding:0 24px}
 
   /* Header */
   header{position:sticky;top:0;z-index:50;background:rgba(11,12,16,0.6);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
@@ -85,16 +86,17 @@
   .card p{color:var(--muted);font-size:14.5px}
   .card .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--accent-2);margin-top:14px}
 
-  /* Two-col feature */
-  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
-  @media(max-width:720px){.two-col{grid-template-columns:1fr}}
-  .feature-img{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;height:260px;display:grid;place-items:center;color:var(--muted);font-size:13px}
+  /* Split-screen app */
+  .app{display:flex;flex-direction:column;height:calc(100vh - 64px);overflow:hidden}
+  .app-body{display:flex;flex:1;overflow:hidden}
+  .panel-left{flex:0 0 380px;background:var(--surface-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .canvas-right{flex:1;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
 
-  /* Demo / interactive */
-  .demo{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:32px}
-  .demo .title{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
-  .demo h2{font-size:24px;margin-bottom:18px}
-  .chat{border:1px solid var(--border);border-radius:12px;background:var(--surface);height:260px;overflow:hidden;display:flex;flex-direction:column;margin-bottom:16px}
+  .panel-header{padding:20px;border-bottom:1px solid var(--border)}
+  .panel-header h2{font-size:17px;margin-bottom:6px}
+  .panel-header p{font-size:13px;color:var(--muted)}
+
+  .chat{border:1px solid var(--border);border-radius:0;background:var(--surface);height:260px;overflow:hidden;display:flex;flex-direction:column;margin-bottom:16px}
   .chat .msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10}
   .bubble{max-width:75%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.45}
   .bubble.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:2px}
@@ -103,6 +105,27 @@
   .chat-input input{flex:1;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--ink);padding:10px 14px;font:inherit}
   .chat-input input:focus{outline:none;border-color:var(--accent)}
   .status{font-size:12px;color:var(--muted);margin-top:8px;min-height:16px}
+
+  .artefactools-list{flex:1;overflow-y:auto;padding:16px 20px}
+  .artefactools-list h3{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .artefactool-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;cursor:pointer;transition:border-color .2s}
+  .artefactool-item:hover{border-color:var(--accent)}
+  .artefactool-item.active{border-color:var(--accent);background:var(--surface-2)}
+  .artefactool-item .name{font-size:14px;font-weight:600;margin-bottom:4px}
+  .artefactool-item .meta{font-size:11px;color:var(--muted)}
+
+  .canvas-header{padding:20px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+  .canvas-header h2{font-size:17px;margin-bottom:6px}
+  .canvas-header p{font-size:13px;color:var(--muted)}
+
+  .canvas{flex:1;background:var(--surface);border-radius:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .canvas-frame{flex:1;width:100%;border:none;background:var(--surface-2)}
+  .canvas-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:40px}
+  .canvas-placeholder .icon{font-size:48px;margin-bottom:16px;opacity:0.5}
+  .canvas-placeholder h3{font-size:18px;margin-bottom:8px}
+  .canvas-placeholder p{font-size:14px;max-width:30ch}
+
+  .canvas-controls{padding:12px 20px;border-top:1px solid var(--border);background:var(--surface-2);display:flex;gap:10;flex-wrap:wrap}
 
   /* Footer */
   footer{border-top:1px solid var(--border);padding:48px 0;color:var(--muted);font-size:13px}
@@ -117,6 +140,13 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .fade-in{animation:fadeIn .4s ease both}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  /* Responsive */
+  @media(max-width:900px){
+    .app-body{flex-direction:column}
+    .panel-left{flex:none;height:45%;min-height:300px}
+    .canvas-right{flex:none;height:55%;min-height:300px}
+  }
 </style>
 </head>
 <body>
@@ -128,9 +158,9 @@
       <nav class="nav-links">
         <a href="#como-funciona">Cómo funciona</a>
         <a href="#modulos">Modulos</a>
-        <a href="#demo">Demo en vivo</a>
+        <a href="#app">App</a>
       </nav>
-      <a class="btn btn-primary" href="https://github.com/dfraenki/artefactools" target="_blank" rel="noopener">Código en GitHub</a>
+      <a class="btn btn-primary" href="https://github.com/dfraenki/artefactools-platform" target="_blank" rel="noopener">Código en GitHub</a>
     </div>
   </header>
 
@@ -141,7 +171,7 @@
         <h1>Cada herramienta, una <b>instancia autónoma</b>.</h1>
         <p>Plataforma modular de orquestación y ejecución de agentes de inteligencia artificial y herramientas agénticas distribuidas. Sin monolitos, sin chatbots cerrados: cada Artefactool es una micro-unidad con su propio entorno de cómputo, memoria aislada y estado.</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="/demo.html">Probar la demo</a>
+          <a class="btn btn-primary" href="#app">Abrir la app</a>
           <a class="btn btn-ghost" href="#modulos">Ver catálogo</a>
         </div>
         <div class="hero-visual">
@@ -199,7 +229,7 @@
           </div>
           <div class="card">
             <h3>Repo Virtualizer</h3>
-            <p>Convierte cualquier repositorio de GitHub en una aplicación desplegada con un clic mediante Cloudflare Workflows.</p>
+            <p>Convierte cualquier repositorio de GitHub en una aplicación instalada y accesible con un clic mediante Cloudflare Workflows.</p>
             <span class="tag">GitHub-to-App</span>
           </div>
           <div class="card">
@@ -207,6 +237,56 @@
             <p>Combina Workers AI (subtareas rápidas) con modelos frontera vía AI Gateway, con conmutación por error automática.</p>
             <span class="tag">Multi-modelo</span>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="app">
+      <div class="container" style="padding:72px 0 40px">
+        <div class="section-head">
+          <div class="kicker">App en vivo</div>
+          <h2>Pantalla dividida: orquestación + lienzo</h2>
+          <p>Panel lateral de chat con la IA interna y lienzo interactivo donde se renderiza cada Artefactool en tiempo real.</p>
+        </div>
+        <div class="app" id="app">
+          <aside class="panel-left" id="panel-left">
+            <div class="panel-header">
+              <h2>Orquestación</h2>
+              <p>Chat con artefactools activas</p>
+            </div>
+            <div class="chat" id="chat">
+              <div class="msgs" id="msgs">
+                <div class="bubble them">Sistema listo. Activa una Artefactool desde el catálogo o escribe un mensaje.</div>
+              </div>
+            </div>
+            <div class="chat-input">
+              <input id="msg" placeholder="Escribe un mensaje…" autocomplete="off">
+              <button class="btn btn-primary" id="send">Enviar</button>
+            </div>
+            <div class="status" id="status">Conectando…</div>
+            <div class="artefactools-list">
+              <h3>Artefactools activas</h3>
+              <div id="artefactools-list">Ninguna activada aún.</div>
+            </div>
+          </aside>
+          <section class="canvas-right" id="canvas-right">
+            <div class="canvas-header">
+              <h2 id="canvas-title">Lienzo interactivo</h2>
+              <p id="canvas-sub">Selecciona una Artefactool para renderizar su interfaz aquí.</p>
+            </div>
+            <div class="canvas">
+              <div class="canvas-placeholder" id="canvas-placeholder">
+                <div class="icon">📦</div>
+                <h3>Sin Artefactool activa</h3>
+                <p>Activa una herramienta desde el panel izquierdo.</p>
+              </div>
+              <iframe class="canvas-frame hidden" id="canvas-frame" src="about:blank"></iframe>
+            </div>
+            <div class="canvas-controls">
+              <button class="btn btn-ghost" id="btn-virtualize">Virtualizar repo GitHub</button>
+              <button class="btn btn-ghost" id="btn-mcp">Ver herramientas MCP</button>
+            </div>
+          </section>
         </div>
       </div>
     </section>
@@ -231,6 +311,15 @@
       const input = document.getElementById('msg');
       const send = document.getElementById('send');
       const status = document.getElementById('status');
+      const artoList = document.getElementById('artefactools-list');
+      const canvasTitle = document.getElementById('canvas-title');
+      const canvasSub = document.getElementById('canvas-sub');
+      const canvasPlaceholder = document.getElementById('canvas-placeholder');
+      const canvasFrame = document.getElementById('canvas-frame');
+      const btnVirtualize = document.getElementById('btn-virtualize');
+      const btnMcp = document.getElementById('btn-mcp');
+
+      let activeArtefactool = null;
 
       function addBubble(text, kind){
         const el = document.createElement('div');
@@ -247,6 +336,33 @@
         status.style.color = ok ? 'var(--accent-2)' : 'var(--danger)';
       }
 
+      function renderArtefactools(items){
+        if(!items || items.length===0){
+          artoList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Ninguna activada aún.</div>';
+          return;
+        }
+        artoList.innerHTML = '';
+        items.forEach(function(a){
+          const el = document.createElement('div');
+          el.className = 'artefactool-item' + (activeArtefactool===a.instance_id ? ' active' : '');
+          el.innerHTML = '<div class="name">'+escapeHtml(a.name)+'</div><div class="meta">'+a.instance_id.slice(0,12)+'…</div>';
+          el.onclick = function(){
+            activeArtefactool = a.instance_id;
+            document.querySelectorAll('.artefactool-item').forEach(function(x){x.classList.remove('active');});
+            el.classList.add('active');
+            canvasTitle.textContent = a.name;
+            canvasSub.textContent = 'Lienzo de '+a.name+' · estado aislado en Durable Object';
+            canvasPlaceholder.classList.add('hidden');
+            canvasFrame.classList.remove('hidden');
+            canvasFrame.src = base + '/agents/' + encodeURIComponent(a.name) + '/v1/state';
+            addBubble('Artefactool "'+a.name+'" seleccionada.', 'them');
+          };
+          artoList.appendChild(el);
+        });
+      }
+
+      function escapeHtml(s){return String(s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m];});}
+
       async function load(){
         try{
           const r = await fetch(base + '/api/messages');
@@ -256,10 +372,13 @@
             data.messages.slice().reverse().forEach(function(m){
               addBubble(m.content, m.role === 'user' ? 'me' : 'them');
             });
-            setStatus('Historial cargado (' + data.messages.length + ' mensajes).', true);
           }
+          const r2 = await fetch(base + '/api/artefactools');
+          const d2 = await r2.json();
+          renderArtefactools(d2.items);
+          setStatus('API viva · ' + (d2.items||[]).length + ' artefactool(es) activa(s)', true);
         }catch(e){
-          setStatus('No se pudo cargar el historial: ' + e.message, false);
+          setStatus('No se pudo conectar con la API: ' + e.message, false);
         }
       }
 
@@ -278,7 +397,6 @@
           });
           const data = await r.json();
           if(data.ok){
-            // eco de respuesta del agente
             setTimeout(function(){
               addBubble('Recibido y guardado en la sesión (UserSessionDO + SQLite).', 'them');
               setStatus('Mensaje guardado correctamente.', true);
@@ -294,12 +412,78 @@
         }
       }
 
+      async function activateArtefactool(name){
+        try{
+          const r = await fetch(base + '/api/artefactools', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name})
+          });
+          const data = await r.json();
+          if(data.ok){
+            addBubble('Artefactool "'+name+'" activada.', 'them');
+            load();
+          } else {
+            setStatus('Error al activar: ' + (data.error || 'desconocido'), false);
+          }
+        }catch(e){
+          setStatus('Error de red: ' + e.message, false);
+        }
+      }
+
       send.addEventListener('click', sendMsg);
       input.addEventListener('keydown', function(e){ if(e.key === 'Enter') sendMsg(); });
 
+      btnVirtualize.addEventListener('click', function(){
+        const url = prompt('Pega la URL del repositorio GitHub:');
+        if(!url) return;
+        const name = 'repo-' + Date.now();
+        activateArtefactool(name).then(function(){
+          setTimeout(function(){
+            fetch(base + '/agents/' + encodeURIComponent(name) + '/v1/virtualize', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({repo_url: url})
+            }).then(function(r){ return r.json(); }).then(function(d){
+              if(d.ok){
+                addBubble('Repo virtualizado: ' + d.repo + ' (' + d.status + ')', 'them');
+                canvasTitle.textContent = name;
+                canvasSub.textContent = 'Repo: ' + d.repo + ' · ' + d.status;
+                canvasPlaceholder.classList.add('hidden');
+                canvasFrame.classList.remove('hidden');
+                canvasFrame.src = base + '/agents/' + encodeURIComponent(name) + '/v1/state';
+              } else {
+                setStatus('Error al virtualizar: ' + (d.error || 'desconocido'), false);
+              }
+            });
+          }, 600);
+        });
+      });
+
+      btnMcp.addEventListener('click', function(){
+        if(!activeArtefactool){
+          setStatus('Selecciona una Artefactool primero.', false);
+          return;
+        }
+        const name = activeArtefactool;
+        fetch(base + '/agents/' + encodeURIComponent(name) + '/mcp', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({jsonrpc:'2.0', id:1, method:'tools/list', params:{}})
+        }).then(function(r){ return r.json(); }).then(function(d){
+          if(d.result && d.result.tools){
+            addBubble('MCP tools: ' + d.result.tools.map(function(t){ return t.name; }).join(', '), 'them');
+          } else {
+            setStatus('MCP no disponible para esta artefactool.', false);
+          }
+        }).catch(function(e){
+          setStatus('Error MCP: ' + e.message, false);
+        });
+      });
+
       // health check on load
       fetch(base + '/health').then(function(r){ return r.json(); }).then(function(d){
-        setStatus('API viva en ' + d.service + ' · ' + new Date(d.ts).toLocaleTimeString(), true);
+        setStatus('API viva en ' + d.service, true);
       }).catch(function(){
         setStatus('API no disponible (Worker no desplegado o sin respuesta).', false);
       });
