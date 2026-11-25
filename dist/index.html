@@ -151,7 +151,7 @@
     <!-- Sidebar izquierda -->
     <aside class="app-sidebar">
       <div class="sidebar-section">
-        <button class="nav-item" style="background:var(--surface);color:var(--ink);border-color:var(--border)">
+        <button class="nav-item" id="nav-nuevo-hilo" style="background:var(--surface);color:var(--ink);border-color:var(--border)">
           <span class="icon">+</span> Nuevo Hilo
           <span style="margin-left:auto;font-size:10px">#K</span>
         </button>
@@ -172,18 +172,7 @@
       </div>
       <div class="sidebar-section">
         <div class="nav-item kicker">HISTORIAL DE CHATS</div>
-        <button class="nav-item active" id="chat-pipeline">
-          <span class="icon">💬</span> Pipeline Optimizado KV
-        </button>
-        <button class="nav-item" id="chat-workers">
-          <span class="icon">💬</span> Workers AI Endpoint #09
-        </button>
-        <button class="nav-item" id="chat-claude">
-          <span class="icon">💬</span> Claude 3.5 Sonnet Benchmark
-        </button>
-        <button class="nav-item" id="chat-proyectos">
-          <span class="icon">💬</span> Proyectos Activos
-        </button>
+        <div style="font-size:12px;color:var(--muted);padding:8px 14px">Sin chats aún. Crea uno con el botón de arriba.</div>
       </div>
     </aside>
 
@@ -339,6 +328,19 @@
           document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
           item.classList.add('active');
         });
+      });
+
+      // Nuevo hilo: limpia el chat y deja el input listo
+      document.getElementById('nav-nuevo-hilo').addEventListener('click', function(){
+        document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+        this.classList.add('active');
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.innerHTML = '<div class="icon">💬</div><div>Nuevo hilo iniciado. Escribe tu primer mensaje.</div>';
+        chatMsgs.innerHTML = '';
+        chatMsgs.appendChild(empty);
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        setStatus('Nuevo hilo iniciado.', true);
       });
 
       fetch(base + '/health').then(r=>r.json()).catch(()=>{});
