@@ -34,7 +34,7 @@ async function deriveKey(material: CryptoKey | BufferSource, salt: Uint8Array): 
     ['deriveKey']
   );
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 250_000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
     base,
     { name: CRYPTO_ALGO, length: 256 },
     false,
@@ -42,7 +42,7 @@ async function deriveKey(material: CryptoKey | BufferSource, salt: Uint8Array): 
   );
 }
 
-export async function encryptValue(plaintext: string, secret: string): Promise<string> {
+async function encryptValue(plaintext: string, secret: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await deriveKey(new TextEncoder().encode(secret), salt);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -99,8 +99,8 @@ export class UserSessionDO extends DurableObject<Env> {
       );
       const messages: MessageRow[] = [];
       for (const row of cursor) {
-        const v = row.value as unknown as [number, string, string, number];
-        messages.push({ id: v[0], role: v[1], content: v[2], created_at: v[3] });
+        const v = row.value as { id: number; role: string; content: string; created_at: number };
+        messages.push({ id: v.id, role: v.role, content: v.content, created_at: v.created_at });
       }
       return Response.json({ ok: true, messages });
     }
@@ -129,8 +129,8 @@ export class UserSessionDO extends DurableObject<Env> {
       );
       const items: { instance_id: string; name: string; created_at: number }[] = [];
       for (const row of cursor) {
-        const v = row.value as unknown as [string, string, number];
-        items.push({ instance_id: v[0], name: v[1], created_at: v[2] });
+        const v = row.value as { instance_id: string; name: string; created_at: number };
+        items.push({ instance_id: v.instance_id, name: v.name, created_at: v.created_at });
       }
       return Response.json({ ok: true, items });
     }
@@ -220,8 +220,9 @@ export class ArtefactoolDO extends DurableObject<Env> {
           const cursor = this.ctx.storage.sql.exec('SELECT name, description, input_schema FROM mcp_tools');
           const tools: any[] = [];
           for (const row of cursor) {
-            const v = row.value as unknown as [string, string, string];
-            tools.push({ name: v[0], description: v[1], inputSchema: JSON.parse(v[2]) });
+            const v = row.value as { name: string; description: string; input_schema: string } | null;
+            if (!v) continue;
+            tools.push({ name: v.name, description: v.description, inputSchema: JSON.parse(v.input_schema) });
           }
           return Response.json({ jsonrpc: '2.0', id: body.id, result: { tools } });
         }
@@ -264,8 +265,8 @@ export class ArtefactoolDO extends DurableObject<Env> {
       const cursor = this.ctx.storage.sql.exec('SELECT key, value, updated_at FROM state');
       const items: Record<string, string> = {};
       for (const row of cursor) {
-        const v = row.value as unknown as [string, string];
-        items[v[0]] = v[1];
+        const v = row.value as { key: string; value: string };
+        items[v.key] = v.value;
       }
       return Response.json({ ok: true, state: items });
     }
@@ -370,8 +371,8 @@ export class CredentialVaultDO extends DurableObject<Env> {
       const cursor = this.ctx.storage.sql.exec('SELECT service, updated_at FROM credentials');
       const services: { service: string; updated_at: number }[] = [];
       for (const row of cursor) {
-        const v = row.value as unknown as [string, number];
-        services.push({ service: v[0], updated_at: v[1] });
+        const v = row.value as { service: string; updated_at: number };
+        services.push({ service: v.service, updated_at: v.updated_at });
       }
       return Response.json({ ok: true, services });
     }
@@ -414,20 +415,26 @@ export class CredentialVaultDO extends DurableObject<Env> {
         );
         let encrypted: string | null = null;
         for (const row of cursor) {
-          const v = row.value as unknown as [string];
-          encrypted = v[0];
+          const v = row.value as { encrypted_value: string } | null;
+          if (v) encrypted = v.encrypted_value;
         }
 
         const requiresApproval = body.requires_approval ?? false;
 
         // Si requiere aprobación y no hay credencial almacenada, crear solicitud pendiente
         if (requiresApproval && encrypted === null) {
-          const id = this.ctx.storage.sql.exec(
+          this.ctx.storage.sql.exec(
             'INSERT INTO approvals (service, action, payload, status, created_at) VALUES (?, ?, ?, ?, ?)',
             body.service, body.method ?? 'POST', JSON.stringify(body.body ?? {}), 'pending', String(Date.now())
           );
+          const idCursor = this.ctx.storage.sql.exec('SELECT last_insert_rowid() AS id');
+          let approvalId = '0';
+          for (const row of idCursor) {
+            const v = row.value as { id: number };
+            approvalId = String(v.id);
+          }
           return Response.json(
-            { ok: false, approval_required: true, approval_id: String(id), message: 'Aprobación humana requerida antes de ejecutar' },
+            { ok: false, approval_required: true, approval_id: approvalId, message: 'Aprobación humana requerida antes de ejecutar' },
             { status: 403 }
           );
         }
@@ -437,12 +444,18 @@ export class CredentialVaultDO extends DurableObject<Env> {
 
         // Si requiere aprobación y hay credencial, crear solicitud de aprobación antes de ejecutar
         if (requiresApproval && encrypted) {
-          const id = this.ctx.storage.sql.exec(
+          this.ctx.storage.sql.exec(
             'INSERT INTO approvals (service, action, payload, status, created_at) VALUES (?, ?, ?, ?, ?)',
             body.service, body.method ?? 'POST', JSON.stringify(body.body ?? {}), 'pending', String(Date.now())
           );
+          const idCursor = this.ctx.storage.sql.exec('SELECT last_insert_rowid() AS id');
+          let approvalId = '0';
+          for (const row of idCursor) {
+            const v = row.value as { id: number };
+            approvalId = String(v.id);
+          }
           return Response.json(
-            { ok: false, approval_required: true, approval_id: String(id), message: 'Acción crítica: esperando aprobación humana' },
+            { ok: false, approval_required: true, approval_id: approvalId, message: 'Acción crítica: esperando aprobación humana' },
             { status: 403 }
           );
         }
@@ -489,8 +502,8 @@ export class CredentialVaultDO extends DurableObject<Env> {
       );
       const items: any[] = [];
       for (const row of cursor) {
-        const v = row.value as unknown as [number, string, string, string, string, number];
-        items.push({ id: v[0], service: v[1], action: v[2], payload: v[3], status: v[4], created_at: v[5] });
+        const v = row.value as { id: number; service: string; action: string; payload: string; status: string; created_at: number };
+        items.push({ id: v.id, service: v.service, action: v.action, payload: v.payload, status: v.status, created_at: v.created_at });
       }
       return Response.json({ ok: true, items });
     }
@@ -561,8 +574,10 @@ export default {
     if (url.pathname.startsWith('/vault/')) {
       const vaultId = env.VAULT.idFromName('default-vault');
       const stub = env.VAULT.get(vaultId);
+      const reqUrl = new URL(request.url);
+      reqUrl.pathname = '/v1' + reqUrl.pathname;
       const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
-      const proxied = new Request(request.url, {
+      const proxied = new Request(reqUrl.toString(), {
         method: request.method,
         headers: request.headers,
         body: body !== undefined ? body : undefined,
