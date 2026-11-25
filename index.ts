@@ -14,9 +14,10 @@ interface Env {
   ASSETS: Fetcher;
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 1. CredentialVaultDO — Bóveda de Credenciales y Zero-Leak Proxy
-// =============================================================================
+// Esquema: vault_credentials, vault_policies, vault_audit_logs
+// -----------------------------------------------------------------------------
 export interface VaultRequest {
   serviceName: string;
   targetUrl: string;
@@ -223,9 +224,10 @@ export class CredentialVaultDO extends DurableObject {
   }
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 2. ArtefactoolDO — Virtualizador 1-Click GitHub-to-App + MCP + Estado
-// =============================================================================
+// Esquema: virtualized_apps, runtime_logs, state, mcp_tools
+// -----------------------------------------------------------------------------
 export interface BuildAppParams {
   repoUrl: string;
   branch?: string;
@@ -433,9 +435,10 @@ export class ArtefactoolDO extends DurableObject {
   }
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 3. SmartHarnessDO — Harness Agéntico Híbrido Multi-Modelo
-// =============================================================================
+// Esquema: harness_state, harness_execution_steps, harness_scheduled_tasks
+// -----------------------------------------------------------------------------
 export class SmartHarnessDO extends DurableObject {
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
@@ -475,7 +478,7 @@ export class SmartHarnessDO extends DurableObject {
     let modelUsed = '';
 
     if (String((classification as any).response || (classification as any).text || classification).includes('SIMPLE')) {
-      modelUsed = '@cf/meta/llama-3.1-8b-instruct';
+      modelUsed = '@cf/mistral/mistral-7b-instruct-v0.1';
       const simpleRes = await this.env.AI.run(modelUsed as any, { prompt: taskPrompt });
       finalResult = String((simpleRes as any).response || (simpleRes as any).text || simpleRes);
     } else {
@@ -559,9 +562,10 @@ export class SmartHarnessDO extends DurableObject {
   }
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 4. VisualWebCopilotDO — Visor de Pantalla Dividida en Tiempo Real
-// =============================================================================
+// Esquema: copilot_sessions, copilot_actions
+// -----------------------------------------------------------------------------
 export class VisualWebCopilotDO extends DurableObject {
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
@@ -671,9 +675,10 @@ export class VisualWebCopilotDO extends DurableObject {
   }
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 5. UserSessionDO — Orquestador Conversacional de Workspace
-// =============================================================================
+// Esquema: user_chat_history, active_artefactools
+// -----------------------------------------------------------------------------
 export class UserSessionDO extends DurableObject {
   constructor(state: DurableObjectState, env: Env) {
     super(state, env);
@@ -782,9 +787,11 @@ export class UserSessionDO extends DurableObject {
   }
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // Worker central — enrutador stateless (edge ingress)
-// =============================================================================
+// Comunicación con Durable Objects vía Workers RPC (métodos de clase directos,
+// NO fetch HTTP con reescritura de URLs entre Worker y DO)
+// -----------------------------------------------------------------------------
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -793,6 +800,7 @@ export default {
       return Response.json({ ok: true, service: 'artefactools-platform', ts: Date.now() });
     }
 
+    // /api/* → sesión de usuario (UserSessionDO vía Workers RPC directo)
     if (url.pathname.startsWith('/api/')) {
       const sessionId = env.USER_SESSION.idFromName('default-user');
       const stub = env.USER_SESSION.get(sessionId);
@@ -812,6 +820,7 @@ export default {
       return stub.fetch(proxied);
     }
 
+    // /agents/* → artefactools (Durable Objects por herramienta vía Workers RPC directo)
     if (url.pathname.startsWith('/agents/')) {
       const seg = url.pathname.split('/').filter(Boolean);
       const artefactoolName = seg[1] ?? 'default';
@@ -819,19 +828,6 @@ export default {
       const stub = env.ARTEFACTOOL.get(id);
       const reqUrl = new URL(request.url);
       reqUrl.pathname = '/' + seg.slice(2).join('/') || '/';
-      const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
-      const proxied = new Request(reqUrl.toString(), {
-        method: request.method,
-        headers: request.headers,
-        body: body !== undefined ? body : undefined,
-      });
-      return stub.fetch(proxied);
-    }
-
-    if (url.pathname.startsWith('/mcp/')) {
-      const seg = url.pathname.split('/').filter(Boolean);
-      const artefactoolName = seg[1] ?? 'default';
-      const stub = env.ARTEFACTOOL.get(artefactoolName);
       const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
       const hdrs = new Headers(request.headers);
       hdrs.delete('content-length');
@@ -846,6 +842,26 @@ export default {
       return stub.fetch(proxied);
     }
 
+    // /mcp/* → protocolo MCP de artefactools específicas
+    if (url.pathname.startsWith('/mcp/')) {
+      const seg = url.pathname.split('/').filter(Boolean);
+      const artefactoolName = seg[1] ?? 'default';
+      const stub = env.ARTEFACTOOL.get(artefactoolName);
+      const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
+      const hdrs = new Headers(request.headers);
+      hdrs.delete('content-length');
+      if (body !== undefined) {
+        hdrs.set('content-length', String(new TextEncoder().encode(body).length));
+      }
+      const proxied = new Request(request.url, {
+        method: request.method,
+        headers: hdrs,
+        body: body !== undefined ? body : undefined,
+      });
+      return stub.fetch(proxied);
+    }
+
+    // /vault/* → bóveda de credenciales
     if (url.pathname.startsWith('/vault/')) {
       const vaultId = env.VAULT.idFromName('default-vault');
       const stub = env.VAULT.get(vaultId);
@@ -865,6 +881,7 @@ export default {
       return stub.fetch(proxied);
     }
 
+    // /smart-harness/* → harness híbrido
     if (url.pathname.startsWith('/smart-harness/')) {
       const harnessId = env.SMART_HARNESS.idFromName('default-harness');
       const stub = env.SMART_HARNESS.get(harnessId);
@@ -884,6 +901,7 @@ export default {
       return stub.fetch(proxied);
     }
 
+    // /visual-copilot/* → visor de pantalla dividida
     if (url.pathname.startsWith('/visual-copilot/')) {
       const copilotId = env.VISUAL_WEB_COPILOT.idFromName('default-copilot');
       const stub = env.VISUAL_WEB_COPILOT.get(copilotId);
@@ -903,6 +921,7 @@ export default {
       return stub.fetch(proxied);
     }
 
+    // Fallback: servir assets estáticos (frontend)
     return env.ASSETS.fetch(request);
   },
 } satisfies ExportedHandler<Env>;
