@@ -2,6 +2,7 @@
   "name": "artefactools-platform",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Arsenal y Marketplace de Artefactools — plataforma modular de orquestación de agentes de IA y herramientas agénticas sobre Cloudflare Workers, Durable Objects y Workers RPC.",
   "scripts": {
     "dev": "wrangler dev",

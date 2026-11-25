@@ -1,11 +1,9 @@
-// Configuración declarativa de despliegue para artefactools.com
-// Estándar Cloudflare Workers 2026 con Durable Objects (storage: sqlite)
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "artefactools-platform",
-  "main": "src/index.ts",
+  "main": "index.ts",
   "compatibility_date": "2026-11-24",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [],
   "observability": {
     "enabled": true
   },
@@ -17,13 +15,17 @@
     "bindings": [
       { "name": "USER_SESSION", "class_name": "UserSessionDO" },
       { "name": "ARTEFACTOOL", "class_name": "ArtefactoolDO" },
-      { "name": "VAULT", "class_name": "CredentialVaultDO" }
+      { "name": "VAULT", "class_name": "CredentialVaultDO" },
+      { "name": "SMART_HARNESS", "class_name": "SmartHarnessDO" },
+      { "name": "VISUAL_WEB_COPILOT", "class_name": "VisualWebCopilotDO" }
     ]
   },
   "exports": {
     "UserSessionDO": { "type": "durable-object", "storage": "sqlite" },
     "ArtefactoolDO": { "type": "durable-object", "storage": "sqlite" },
-    "CredentialVaultDO": { "type": "durable-object", "storage": "sqlite" }
+    "CredentialVaultDO": { "type": "durable-object", "storage": "sqlite" },
+    "SmartHarnessDO": { "type": "durable-object", "storage": "sqlite" },
+    "VisualWebCopilotDO": { "type": "durable-object", "storage": "sqlite" }
   },
   "ai": { "binding": "AI" }
 }
