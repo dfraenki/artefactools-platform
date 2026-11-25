@@ -3,26 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>artefactools — Arsenal y Marketplace de Agentes de IA</title>
+<title>artefactools — Dashboard</title>
 <meta name="description" content="Plataforma modular de orquestación de agentes de inteligencia artificial y herramientas agénticas distribuidas sobre Cloudflare Workers y Durable Objects.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0a0f;
-    --surface:#111118;
-    --surface-2:#161620;
-    --border:#27273a;
-    --ink:#fafafa;
-    --muted:#9ca3af;
-    --accent:#8b5cf6;
-    --accent-2:#06b6d4;
-    --success:#34d399;
-    --danger:#f87171;
-    --warning:#fbbf24;
-    --radius:12px;
-    --shadow:0 24px 48px -12px rgba(0,0,0,0.6);
+    --bg:#ffffff;
+    --surface:#f5f7fa;
+    --card:#ffffff;
+    --border:#e5e7eb;
+    --ink:#0f172a;
+    --muted:#64748b;
+    --accent:#ff7f3e;
+    --success:#10b981;
+    --radius:10px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{-webkit-font-smoothing:antialiased}
@@ -30,173 +26,109 @@
     background:var(--bg);
     color:var(--ink);
     font-family:Inter,system-ui,sans-serif;
-    line-height:1.55;
+    line-height:1.5;
     min-height:100vh;
+    overflow:hidden;
   }
-  a{color:var(--accent-2);text-decoration:none}
+  a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
   img{max-width:100%;display:block}
   .skip{position:absolute;left:-10000px}
+  code{font-family:JetBrainsMono,monospace;font-size:11px;background:var(--surface);padding:1px 6px;border-radius:4px}
 
   /* Header */
-  header{position:sticky;top:0;z-index:50;background:rgba(10,10,15,0.7);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-  .nav{display:flex;align-items:center;justify-content:space-between;height:60px}
-  .brand{display:flex;align-items:center;gap:10;font-weight:700;letter-spacing:-0.5px}
-  .mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px}
-  .nav-links{display:flex;gap:24px}
-  .nav-links a{color:var(--muted);font-size:13px;font-weight:500}
-  .nav-links a:hover{color:var(--ink)}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8;height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;transition:transform .1s,border-color .2s,box-shadow .2s}
+  header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);height:56px}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px}
+  .brand{display:flex;align-items:center;gap:12;font-weight:800;letter-spacing:-0.5px;font-size:20px;color:var(--ink)}
+  .brand .mark{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#ff7f3e,#ffb347);display:grid;place-items:center;color:#fff;font-weight:900;font-size:12px}
+  .pill{display:inline-flex;align-items:center;gap:6;height:24px;padding:0 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;font-weight:600}
+  .nav-right{display:flex;align-items:center;gap:12}
+  .model-select{display:flex;align-items:center;gap:6;height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:12px;font-weight:600;cursor:pointer}
+  .model-select:hover{border-color:var(--accent)}
+  .user-avatar{width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-weight:800;font-size:12px;color:var(--muted)}
+
+  /* Layout */
+  .app{display:flex;height:calc(100vh - 56px);overflow:hidden}
+  .app-sidebar{flex:0 0 260px;background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+  .app-main{flex:1;background:var(--surface);overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .app-right{flex:0 0 360px;background:var(--bg);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+
+  /* Sidebar */
+  .sidebar-section{padding:16px}
+  .sidebar-section h3{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer;transition:background .2s,color .2s;border:1px solid transparent}
+  .nav-item:hover{background:var(--surface);color:var(--ink)}
+  .nav-item.active{background:var(--surface);color:var(--ink);border-color:var(--border)}
+  .nav-item.live{border-left:3px solid var(--success)}
+  .nav-item .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--success)}
+  .nav-item .icon{flex:none;width:20px;text-align:center;font-size:14px}
+  .nav-item.kicker{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:default;padding:12px 14px 4px}
+  .nav-item.kicker:hover{background:transparent;color:var(--muted)}
+  .divider{height:1px;background:var(--border);margin:8px 0}
+
+  /* Main content */
+  .main-header{padding:24px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.6)}
+  .main-header h1{font-size:16px;font-weight:700;color:var(--ink)}
+  .main-header p{font-size:13px;color:var(--muted);margin-top:4px}
+  .main-body{flex:1;overflow-y:auto;padding:24px;background:var(--surface)}
+  .prompt-bubble{background:#eef2ff;border:1px solid #dbe3f6;border-radius:12px;padding:18px 20px;margin-bottom:24px;font-size:14px;color:var(--ink)}
+  .artifact-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px}
+  .artifact-icon{flex:none;width:40px;height:40px;border-radius:10px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-size:20px}
+  .artifact-info{flex:1}
+  .artifact-info h3{font-size:15px;font-weight:700;margin-bottom:4px}
+  .artifact-info p{font-size:12px;color:var(--muted)}
+  .artifact-badge{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;border-radius:6px;background:#dcfce7;color:#166534}
+  .artifact-actions{display:flex;gap:8}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6;height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;transition:transform .1s,border-color .2s,box-shadow .2s}
   .btn:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   .btn:active{transform:translateY(1px)}
   .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn-primary:hover{background:#7c3aed;border-color:#7c3aed}
+  .btn-primary:hover{background:#e86a2c;border-color:#e86a2c}
   .btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
-  .btn-ghost:hover{color:var(--ink);background:var(--surface-2)}
-  .btn-sm{height:30px;padding:0 10px;font-size:12px}
-  .badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:600}
-  .badge.ok{background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.3);color:var(--success)}
-  .badge.pending{background:rgba(251,191,36,0.1);border-color:rgba(251,191,36,0.3);color:var(--warning)}
-  .badge.danger{background:rgba(248,113,113,0.1);border-color:rgba(248,113,113,0.3);color:var(--danger)}
+  .btn-ghost:hover{color:var(--ink);background:var(--surface)}
+  .btn-sm{height:28px;padding:0 10px;font-size:12px}
 
-  /* Hero */
-  .hero{padding:112px 0 80px}
-  .hero .kicker{font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--accent-2);margin-bottom:16px}
-  .hero h1{font-size:56px;line-height:1.05;letter-spacing:-0.03em;margin-bottom:24px}
-  .hero h1 b{color:var(--accent-2)}
-  .hero p{color:var(--muted);font-size:20px;max-width:64ch;margin-bottom:32px;line-height:1.6}
-  .hero-actions{display:flex;flex-wrap:wrap;gap:12}
-  .hero-visual{margin-top:80px;display:flex;justify-content:center}
-  .diagram{width:100%;max-width:620px;background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--shadow)}
-  .diagram .title{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:20px}
-  .flow{display:flex;flex-direction:column;gap:16px}
-  .step{display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;border:1px solid transparent;background:var(--surface)}
-  .step:hover{border-color:var(--border)}
-  .step.num{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;flex-shrink:0}
-  .step .label{font-size:14px;font-weight:600}
-  .step .sub{font-size:12px;color:var(--muted)}
-  .arrow{flex:none;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--muted);margin-left:2px}
-
-  /* Sections */
-  section{padding:96px 0}
-  .section-head{margin-bottom:48px;text-align:center}
-  .section-head .kicker{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
-  .section-head h2{font-size:36px;line-height:1.1;letter-spacing:-0.02em;margin-bottom:16px}
-  .section-head p{color:var(--muted);font-size:18px;max-width:64ch;margin:0 auto}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-  .card{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:28px}
-  .card h3{font-size:18px;margin-bottom:12px}
-  .card p{color:var(--muted);font-size:15px}
-  .card .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--accent-2);margin-top:16px}
-  .card-feature{display:flex;gap:16px}
-  .card-feature .icon{flex:none;width:40px;height:40px;border-radius:10px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;color:var(--accent);font-size:18px}
-  .card-feature .text{flex:1}
-  .card-feature h4{font-size:15px;margin-bottom:4px}
-  .card-feature p{font-size:13px;color:var(--muted)}
-
-  /* App shell */
-  .app{display:flex;height:calc(100vh - 60px);overflow:hidden}
-  .app-sidebar{flex:0 0 260px;background:var(--surface-2);border-right:1px solid var(--border);display:flex;flex-direction:column}
-  .app-main{flex:1;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;position:relative}
-  .sidebar-brand{padding:24px;border-bottom:1px solid var(--border)}
-  .sidebar-brand .brand{font-size:16px}
-  .sidebar-nav{flex:1;overflow-y:auto;padding:20px 0}
-  .nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;color:var(--muted);font-size:13px;cursor:pointer;border:none;background:transparent;text-align:left;transition:color .2s,background .2s}
-  .nav-item:hover{color:var(--ink);background:var(--surface)}
-  .nav-item.active{color:var(--accent);background:rgba(139,92,246,0.1)}
-  .nav-item .icon{flex:none;width:20px;text-align:center;font-size:14px}
-  .nav-item.kicker{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:default;padding:12px 20px 6px}
-  .nav-item.kicker:hover{background:transparent;color:var(--muted)}
-
-  /* Main content areas */
-  .view{display:none;flex:1;overflow-y:auto;padding:32px}
-  .view.active{display:block}
-  .view-header{margin-bottom:32px}
-  .view-header h2{font-size:24px;margin-bottom:8px}
-  .view-header p{color:var(--muted);font-size:15px}
-
-  /* Split screen for orquestacion */
-  .split{display:flex;height:calc(100vh - 60px - 64px);overflow:hidden}
-  .split-left{flex:0 0 360px;background:var(--surface-2);border-right:1px solid var(--border);display:flex;flex-direction:column}
-  .split-right{flex:1;background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
-  .panel-header{padding:20px;border-bottom:1px solid var(--border)}
-  .panel-header h3{font-size:15px;margin-bottom:4px}
-  .panel-header p{font-size:12px;color:var(--muted)}
-  .chat{border:1px solid var(--border);border-radius:0;background:var(--surface);height:240px;overflow:hidden;display:flex;flex-direction:column;margin-bottom:16px}
-  .chat .msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10}
-  .bubble{max-width:75%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.45}
+  /* Chat */
+  .chat-area{background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;margin-bottom:24px}
+  .chat-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10}
+  .chat-avatar{flex:none;width:32px;height:32px;border-radius:8px;background:var(--accent-light);color:var(--accent);font-weight:800;font-size:14px;display:grid;place-items:center}
+  .chat-title{font-size:14px;font-weight:700;color:var(--ink)}
+  .chat-meta{font-size:11px;color:var(--muted);margin-left:auto}
+  .chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+  .bubble{max-width:80%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.55}
   .bubble.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:2px}
-  .bubble.them{background:var(--surface-2);color:var(--ink);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:2px}
-  .chat-input{display:flex;gap:8;padding:10px;border-top:1px solid var(--border)}
-  .chat-input input{flex:1;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--ink);padding:9px 12px;font:inherit}
-  .chat-input input:focus{outline:none;border-color:var(--accent)}
-  .status{font-size:11px;color:var(--muted);margin-top:6px;min-height:14px}
+  .bubble.them{background:var(--surface);color:var(--ink);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:2px}
+  .chat-input-area{padding:14px 20px;border-top:1px solid var(--border);background:var(--card);display:flex;gap:10;align-items:flex-end}
+  .chat-input-area input{flex:1;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--ink);padding:10px 14px;font:inherit;font-size:13px}
+  .chat-input-area input:focus{outline:none;border-color:var(--accent)}
+  .chat-tools{display:flex;gap:6}
+  .chat-tool{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px}
+  .chat-tool:hover{border-color:var(--accent);color:var(--accent)}
+  .model-pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:var(--surface);color:var(--muted);border:1px solid var(--border)}
 
-  .artefactools-list{flex:1;overflow-y:auto;padding:16px 20px}
-  .artefactools-list h3{font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
-  .artefactool-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color .2s}
-  .artefactool-item:hover{border-color:var(--accent)}
-  .artefactool-item.active{border-color:var(--accent);background:var(--surface-2)}
-  .artefactool-item .head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
-  .artefactool-item .name{font-size:14px;font-weight:600}
-  .artefactool-item .meta{font-size:11px;color:var(--muted);margin-top:2px}
-
-  .canvas-header{padding:20px;border-bottom:1px solid var(--border);background:var(--surface-2)}
-  .canvas-header h3{font-size:15px;margin-bottom:4px}
-  .canvas-header p{font-size:12px;color:var(--muted)}
-  .canvas{flex:1;background:var(--surface);overflow:hidden;display:flex;flex-direction:column;position:relative}
-  .canvas-frame{flex:1;width:100%;border:none;background:var(--surface-2)}
-  .canvas-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:48px}
-  .canvas-placeholder .icon{font-size:56px;margin-bottom:20px;opacity:0.4}
-  .canvas-placeholder h3{font-size:20px;margin-bottom:8px}
-  .canvas-placeholder p{font-size:14px;max-width:30ch}
-  .canvas-controls{padding:14px 20px;border-top:1px solid var(--border);background:var(--surface-2);display:flex;gap:10;flex-wrap:wrap}
-
-  /* Table */
-  .table-wrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{text-align:left;color:var(--muted);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:1px;text-transform:uppercase}
-  td{padding:12px 14px;border-bottom:1px solid var(--border)}
-  tr:hover td{background:var(--surface-2)}
-
-  /* Form */
-  .form{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:28px}
-  .form h3{font-size:18px;margin-bottom:20px}
-  .field{margin-bottom:18px}
-  .field label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px}
-  .field input,.field select,.field textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--ink);padding:10px 12px;font:inherit;font-size:13px}
-  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent)}
-  .field .hint{font-size:11px;color:var(--muted);margin-top:4px}
-  .form-actions{display:flex;gap:10;margin-top:24px}
+  /* Right panel */
+  .right-section{padding:20px}
+  .right-section h3{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+  .right-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px}
+  .right-item h4{font-size:13px;font-weight:700;margin-bottom:4px;word-break:break-all}
+  .right-item .meta{font-size:11px;color:var(--muted);margin-bottom:2px}
+  .right-item .badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:#dcfce7;color:#166534;margin-top:6px;display:inline-block}
+  .right-item .badge.active{background:#dbeafe;color:#1e40af}
 
   /* Footer */
-  footer{border-top:1px solid var(--border);padding:56px 0;color:var(--muted);font-size:12px}
-  .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
-  .footer-links{display:flex;gap:24px;font-size:12px}
-  .footer-links a{color:var(--muted)}
-  .footer-links a:hover{color:var(--ink)}
+  footer{border-top:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px}
+  .settings-btn{width:32px;height:32px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px}
 
   /* Utilities */
   .hidden{display:none}
-  .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
   .fade-in{animation:fadeIn .3s ease both}
   @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-  .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
-  .empty-state .icon{font-size:48px;margin-bottom:16px;opacity:0.3}
-  .alert{padding:12px 16px;border-radius:9px;margin-bottom:16px;font-size:13px}
-  .alert.error{background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--danger)}
-  .alert.ok{background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.3);color:var(--success)}
 
   /* Responsive */
-  @media(max-width:900px){
-    .app{flex-direction:column}
-    .app-sidebar{flex:none;height:40%}
-    .app-main{flex:none;height:60%}
-    .split{flex-direction:column}
-    .split-left{flex:none;height:45%}
-    .split-right{flex:none;height:55%}
-    .grid{grid-template-columns:1fr}
+  @media(max-width:1100px){.app-right{display:none}}
+  @media(max-width:760px){
+    .app-sidebar{display:none}
+    .app-main{flex:1}
   }
 </style>
 </head>
@@ -204,565 +136,213 @@
   <a href="#content" class="skip">Saltar al contenido</a>
 
   <header>
-    <div class="container nav">
+    <div class="nav">
       <div class="brand"><div class="mark">A</div><span>artefactools</span></div>
-      <nav class="nav-links">
-        <a href="#como-funciona">Cómo funciona</a>
-        <a href="#modulos">Modulos</a>
-        <a href="#app">App</a>
+      <div class="pill">EDGE READY</div>
+      <nav class="nav-right">
+        <div class="model-select">Workers AI / Llama 3.3 70B ▾</div>
+        <div class="user-avatar">AD</div>
       </nav>
-      <a class="btn btn-primary" href="https://github.com/dfraenki/artefactools-platform" target="_blank" rel="noopener">Código en GitHub</a>
     </div>
   </header>
 
-  <main id="content">
-    <section class="hero">
-      <div class="container">
-        <div class="kicker">Arsenal y Marketplace de Agentes de IA</div>
-        <h1>Software personal <b>stateful</b>, no SaaS rígido.</h1>
-        <p>Plataforma modular de orquestación y ejecución de agentes de inteligencia artificial y herramientas agénticas distribuidas. Cada Artefactool es una instancia aislada con su propia memoria, estado y entorno de cómputo. Sin amnesia de contexto, sin claves expuestas, sin cómputo inactivo.</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="#app">Abrir la plataforma</a>
-          <a class="btn btn-ghost" href="#modulos">Ver catálogo</a>
+  <div class="app">
+    <!-- Sidebar izquierda: artefactools creados + historial de chats -->
+    <aside class="app-sidebar">
+      <div class="sidebar-section">
+        <button class="nav-item" style="background:var(--surface);color:var(--ink);border-color:var(--border)">
+          <span class="icon">+</span> Nuevo Hilo
+          <span style="margin-left:auto;font-size:10px">#K</span>
+        </button>
+      </div>
+      <div class="sidebar-section">
+        <div class="nav-item kicker">ARTEFACTOOLS CREADOS</div>
+        <button class="nav-item active live" id="nav-edgeguard">
+          <span class="icon">🛡️</span>
+          <span>EdgeGuard Bot Filter</span>
+          <span style="margin-left:auto" class="badge-small">LIVE</span>
+        </button>
+        <button class="nav-item" id="nav-stripe">
+          <span class="icon">🔗</span> Stripe Webhook Sync
+        </button>
+        <button class="nav-item" id="nav-github">
+          <span class="icon">📦</span> GitHub Repo Virtualizer
+        </button>
+      </div>
+      <div class="sidebar-section">
+        <div class="nav-item kicker">HISTORIAL DE CHATS</div>
+        <button class="nav-item active" id="chat-pipeline">
+          <span class="icon">💬</span> Pipeline Optimizado KV
+        </button>
+        <button class="nav-item" id="chat-workers">
+          <span class="icon">💬</span> Workers AI Endpoint #09
+        </button>
+        <button class="nav-item" id="chat-claude">
+          <span class="icon">💬</span> Claude 3.5 Sonnet Benchmark
+        </button>
+        <button class="nav-item" id="chat-proyectos">
+          <span class="icon">💬</span> Proyectos Activos
+        </button>
+      </div>
+    </aside>
+
+    <!-- Panel central: chat + herramientas -->
+    <section class="app-main">
+      <header class="main-header">
+        <h1>Crea una micro-herramienta que analice el tráfico en edge y filtre bots con SQLite persistente (Durable Objects). Necesito métricas en tiempo real de peticiones bloqueadas y un interruptor de umbral para el scoring de confianza.</h1>
+        <p>Describe qué necesitas y el orquestador coordinará las artefactools para construirlo.</p>
+      </header>
+      <div class="main-body">
+        <div class="prompt-bubble">
+          Crea una micro-herramienta que analice el tráfico en edge y filtre bots con SQLite persistente (Durable Objects). Necesito métricas en tiempo real de peticiones bloqueadas y un interruptor de umbral para el scoring de confianza.
         </div>
-        <div class="hero-visual">
-          <div class="diagram">
-            <div class="title">Arquitectura: Edge → Durable Objects aislados</div>
-            <div class="flow">
-              <div class="step"><div class="num">1</div><div><div class="label">Petición HTTP / MCP</div><div class="sub">Edge ingress stateless</div></div><div class="arrow"></div></div>
-              <div class="step"><div class="num">2</div><div><div class="label">Worker Central</div><div class="sub">Enruta por Workers RPC</div></div><div class="arrow"></div></div>
-              <div class="step"><div class="num">3</div><div><div class="label">UserSessionDO / ArtefactoolDO / CredentialVaultDO</div><div class="sub">SQLite aislado por instancia</div></div></div>
+
+        <div class="chat-area" id="chat-area">
+          <div class="chat-header">
+            <div class="chat-avatar">A</div>
+            <div class="chat-title">artefacbot</div>
+            <div class="chat-meta">Pensado / Construido en 1.4s ▾</div>
+          </div>
+          <div class="chat-messages" id="chat-msgs">
+            <div class="bubble them">
+              He ensamblado la micro-aplicación completa. El componente analiza los headers <code>cf-connecting-ip</code>, calcula un vector de riesgo heurístico y almacena los hashes de sesión en SQLite persistente en el edge.
             </div>
+          </div>
+          <div class="chat-input-area">
+            <div class="chat-tools">
+              <button class="chat-tool" title="Adjuntar">📎</button>
+              <button class="chat-tool" title="Historia">⟲</button>
+            </div>
+            <input id="chat-input" placeholder="Escribe un mensaje a artefacbot (ej. 'Añade un endpoint Prometheus' o 'Conecta un MCP de GitHub')..." autocomplete="off">
+            <div class="model-pill">Llama 3.3 70B</div>
+            <button class="btn btn-primary btn-sm" id="chat-send">▲</button>
+          </div>
+        </div>
+
+        <div class="artifact-card">
+          <div class="artifact-icon">🛡️</div>
+          <div class="artifact-info">
+            <h3>EdgeGuard Lite // Bot Filter</h3>
+            <p>https://edgeguard.tools.workers.dev/v1/in...</p>
+          </div>
+          <span class="artifact-badge">SQLITE DO</span>
+          <div class="artifact-actions">
+            <button class="btn btn-ghost btn-sm">Abir Visor</button>
+            <button class="btn btn-primary btn-sm">Desplegar</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="como-funciona">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Arquitectura</div>
-          <h2>Por qué es diferente</h3>
-          <p>La mayoría de los agentes son apátridas y ejecutan en contenedores siempre encendidos. artefactools invierte el modelo: cada usuario y cada herramienta es un Durable Object con SQLite colocado, activado en ~200 ms solo cuando se necesita.</p>
+    <!-- Sidebar derecha: estado, endpoints, MCP, Durable Objects -->
+    <aside class="app-right">
+      <div class="right-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="nav-item kicker">ACTIVOS EN VIVO</div>
+          <span style="font-size:11px;color:var(--muted)">●</span>
         </div>
-        <div class="grid">
-          <div class="card">
-            <div class="card-feature">
-              <div class="icon">🧠</div>
-              <div class="text"><h4>Sin amnesia de contexto</h4><p>Cada usuario tiene su UserSessionDO con historial persistente en SQLite local. Las lecturas son a velocidad de memoria, sin reconstruir el historial en cada turno.</p></div>
-            </div>
-            <span class="tag">Estado fuerte</span>
-          </div>
-          <div class="card">
-            <div class="card-feature">
-              <div class="icon">🔒</div>
-              <div class="text"><h4>Cero exposición de secretos</h4><p>La CredentialVaultDO guarda claves cifradas con AES-GCM. El LLM nunca ve los tokens; la bóveda inyecta la autorización por RPC y requiere aprobación humana para mutaciones críticas.</p></div>
-            </div>
-            <span class="tag">Zero-leak</span>
-          </div>
-          <div class="card">
-            <div class="card-feature">
-              <div class="icon">⚡</div>
-              <div class="text"><h4>Sin cómputo inactivo</h4><p>Los Durable Objects se activan bajo demanda y se duermen cuando no se usan. No pagas por máquinas encendidas el 99% del tiempo esperando.</p></div>
-            </div>
-            <span class="tag">Serverless</span>
-          </div>
+        <div class="right-item">
+          <h4>Endpoints Activos</h4>
+          <div class="meta">Workers</div>
+          <div style="font-size:12px;color:var(--ink);margin-bottom:6px">/v1/inspect</div>
+          <div class="badge">200 OK</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">edgedguard.workers.dev · 1.2ms</div>
         </div>
-      </div>
-    </section>
-
-    <section id="modulos">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Catálogo</div>
-          <h2>Artefactools preconstruidas</h3>
-          <p>Activa cualquier herramienta del catálogo con un clic. Cada una ejecuta en su propio Durable Object aislado.</p>
+        <div class="right-item">
+          <div style="font-size:12px;color:var(--ink);margin-bottom:6px">/api/webhook-stripe</div>
+          <div class="badge active">ACTIVO</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">billing.workers.dev · 4.1ms</div>
         </div>
-        <div class="grid">
-          <div class="card">
-            <h3>Visual Web Copilot</h3>
-            <p>Control de aplicaciones web en tiempo real con vista previa dividida y navegador aislado vía Containers & Sandbox SDK.</p>
-            <span class="tag">Automatización web</span>
-          </div>
-          <div class="card">
-            <h3>Repo Virtualizer</h3>
-            <p>Convierte cualquier repositorio de GitHub en una aplicación instalada y accesible con un clic mediante Cloudflare Workflows.</p>
-            <span class="tag">GitHub-to-App</span>
-          </div>
-          <div class="card">
-            <h3>Smart Harness Híbrido</h3>
-            <p>Combina Workers AI (subtareas rápidas) con modelos frontera vía AI Gateway, con conmutación por error automática.</p>
-            <span class="tag">Multi-modelo</span>
-          </div>
+        <div class="divider"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="nav-item kicker">Conectores MCP</div>
+          <span style="font-size:11px;color:var(--muted)">2 activos</div>
+        </div>
+        <div class="right-item">
+          <h4>mcp-edgeguard-sqlite</h4>
+          <div class="meta">Transporte: SSE</div>
+          <span class="badge-small">●</span>
+        </div>
+        <div class="right-item">
+          <h4>mcp-github-repo</h4>
+          <div class="meta">Transporte: stdio</div>
+          <span class="badge-small">●</span>
+        </div>
+        <div class="divider"></div>
+        <div class="nav-item kicker">Durable Objects / SQLite</div>
+        <div class="right-item">
+          <div style="font-size:12px;color:var(--ink)">2 instancias</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">4.2 KB usados</div>
+          <span class="badge-small">SYNC</span>
         </div>
       </div>
-    </section>
-
-    <section id="app">
-      <div class="container" style="padding:96px 0 40px">
-        <div class="section-head">
-          <div class="kicker">Plataforma en vivo</div>
-          <h2>Acceder a la aplicación</h2>
-          <p>La aplicación corre en tu propia cuenta de Cloudflare Workers. Inicia sesión para ver tus artefactools activas, credenciales y aprobaciones pendientes.</p>
-        </div>
-        <div class="app" id="app">
-          <aside class="app-sidebar" id="app-sidebar">
-            <div class="sidebar-brand">
-              <div class="brand"><div class="mark">A</div><span>artefactools</span></div>
-            </div>
-            <nav class="sidebar-nav">
-              <div class="nav-item kicker">PLATAFORMA</div>
-              <button class="nav-item active" id="nav-orchestracion"><span class="icon">💬</span>Orquestación</button>
-              <button class="nav-item" id="nav-artefactools"><span class="icon">📦</span>Artefactools</button>
-              <button class="nav-item" id="nav-vault"><span class="icon">🔐</span>Bóveda</button>
-              <button class="nav-item" id="nav-aprobaciones"><span class="icon">⏳</span>Aprobaciones</button>
-              <div class="nav-item kicker">SISTEMA</div>
-              <button class="nav-item" id="nav-health"><span class="icon">🏥</span>Estado del Worker</button>
-            </nav>
-          </aside>
-          <section class="app-main">
-            <!-- Orquestación -->
-            <div class="view active" id="view-orchestracion">
-              <div class="view-header">
-                <h2>Orquestación</h2>
-                <p>Chat con la IA interna y panel de control de artefactools activas.</p>
-              </div>
-              <div class="split">
-                <aside class="split-left" id="split-left">
-                  <div class="panel-header">
-                    <h3>Chat de sesión</h3>
-                    <p>Mensajes guardados en UserSessionDO + SQLite</p>
-                  </div>
-                  <div class="chat" id="chat">
-                    <div class="msgs" id="msgs">
-                      <div class="bubble them">Sistema listo. Escribe un mensaje o activa una Artefactool desde el panel derecho.</div>
-                    </div>
-                  </div>
-                  <div class="chat-input">
-                    <input id="msg" placeholder="Escribe un mensaje…" autocomplete="off">
-                    <button class="btn btn-primary btn-sm" id="send">Enviar</button>
-                  </div>
-                  <div class="status" id="status">Conectando…</div>
-                  <div class="artefactools-list">
-                    <h3>Artefactools activas</h3>
-                    <div id="artefactools-list">Cargando…</div>
-                  </div>
-                </aside>
-                <section class="split-right" id="split-right">
-                  <div class="canvas-header">
-                    <h3 id="canvas-title">Lienzo interactivo</h3>
-                    <p id="canvas-sub">Selecciona una Artefactool para renderizar su interfaz aquí.</p>
-                  </div>
-                  <div class="canvas">
-                    <div class="canvas-placeholder" id="canvas-placeholder">
-                      <div class="icon">📦</div>
-                      <h3>Sin Artefactool activa</h3>
-                      <p>Activa una herramienta desde el panel izquierdo.</p>
-                    </div>
-                    <iframe class="canvas-frame hidden" id="canvas-frame" src="about:blank"></iframe>
-                  </div>
-                  <div class="canvas-controls">
-                    <button class="btn btn-ghost" id="btn-virtualize">Virtualizar repo GitHub</button>
-                    <button class="btn btn-ghost" id="btn-mcp">Ver herramientas MCP</button>
-                  </div>
-                </section>
-              </div>
-            </div>
-
-            <!-- Artefactools -->
-            <div class="view" id="view-artefactools">
-              <div class="view-header">
-                <h2>Artefactools activas</h2>
-                <p>Lista de herramientas desplegadas como Durable Objects aislados.</p>
-              </div>
-              <div class="form-actions" style="margin-bottom:24px">
-                <input id="new-artefactool-name" placeholder="Nombre de la nueva artefactool" class="field input" style="width:auto;max-width:300px;display:inline-block">
-                <button class="btn btn-primary" id="btn-crear-artefactool">Activar</button>
-              </div>
-              <div class="table-wrap">
-                <table id="artefactools-table">
-                  <thead><tr><th>Nombre</th><th>Instancia ID</th><th>Estado</th><th>Acciones</th></tr></thead>
-                  <tbody id="artefactools-tbody"></tbody>
-                </table>
-              </div>
-              <div class="empty-state hidden" id="artefactools-empty">
-                <div class="icon">📦</div>
-                <h3>Sin artefactools activas</h3>
-                <p>Activa tu primera herramienta desde el formulario de arriba.</p>
-              </div>
-            </div>
-
-            <!-- Bóveda -->
-            <div class="view" id="view-vault">
-              <div class="view-header">
-                <h2>Bóveda de credenciales</h2>
-                <p>Credenciales cifradas con AES-GCM. El LLM nunca ve los valores en texto plano.</p>
-              </div>
-              <div class="form-actions" style="margin-bottom:24px;flex-wrap:wrap">
-                <input id="vault-service" placeholder="Servicio (ej. github)" class="field input" style="width:auto;max-width:200px;display:inline-block">
-                <input id="vault-value" placeholder="Valor (token / clave)" class="field input" style="width:auto;max-width:280px;display:inline-block">
-                <button class="btn btn-primary" id="btn-guardar-credencial">Guardar</button>
-              </div>
-              <div class="table-wrap">
-                <table id="vault-table">
-                  <thead><tr><th>Servicio</th><th>Actualizado</th><th>Acciones</th></tr></thead>
-                  <tbody id="vault-tbody"></tbody>
-                </table>
-              </div>
-              <div class="empty-state hidden" id="vault-empty">
-                <div class="icon">🔐</div>
-                <h3>Sin credenciales configuradas</h3>
-                <p>Agrega tu primera credencial desde el formulario de arriba.</p>
-              </div>
-            </div>
-
-            <!-- Aprobaciones -->
-            <div class="view" id="view-aprobaciones">
-              <div class="view-header">
-                <h2>Aprobaciones pendientes</h2>
-                <p>Acciones críticas que requieren aprobación humana antes de ejecutarse (human-in-the-loop).</p>
-              </div>
-              <div class="table-wrap">
-                <table id="aprobaciones-table">
-                  <thead><tr><th>Servicio</th><th>Acción</th><th>Estado</th><th>Creado</th><th>Resolver</th></tr></thead>
-                  <tbody id="aprobaciones-tbody"></tbody>
-                </table>
-              </div>
-              <div class="empty-state hidden" id="aprobaciones-empty">
-                <div class="icon">⏳</div>
-                <h3>Sin aprobaciones pendientes</h3>
-                <p>Las acciones críticas aparecerán aquí para tu revisión.</p>
-              </div>
-            </div>
-
-            <!-- Health -->
-            <div class="view" id="view-health">
-              <div class="view-header">
-                <h2>Estado del Worker</h2>
-                <p>Información del despliegue en Cloudflare Workers.</p>
-              </div>
-              <div class="form">
-                <div class="field">
-                  <label>Endpoint</label>
-                  <input id="health-url" value="/health" readonly>
-                </div>
-                <div class="form-actions">
-                  <button class="btn btn-primary" id="btn-check-health">Consultar /health</button>
-                </div>
-              </div>
-              <div id="health-result" class="hidden" style="margin-top:16px">
-                <pre id="health-json" style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:16px;font-size:12px;font-family:JetBrainsMono,monospace;overflow:auto"></pre>
-              </div>
-            </div>
-
-          </section>
-        </div>
-      </div>
-    </section>
-  </main>
+    </aside>
+  </div>
 
   <footer>
-    <div class="container footer-inner">
-      <div>artefactools.com · Plataforma de agentes modulares sobre Cloudflare Workers</div>
-      <div class="footer-links">
-        <a href="#">Documentación</a>
-        <a href="#">Catálogo</a>
-        <a href="#">Estado</a>
-        <a href="#">Privacidad</a>
-      </div>
-    </div>
+    <span>v2.4.0-edge</span>
+    <button class="settings-btn" title="Ajustes">⚙️</button>
   </footer>
 
   <script>
     (function(){
       const base = window.location.origin;
-      let activeArtefactool = null;
+      const chatInput = document.getElementById('chat-input');
+      const chatSend = document.getElementById('chat-send');
+      const chatMsgs = document.getElementById('chat-msgs');
 
-      // ---------- Navegación ----------
-      const navItems = {
-        orchestracion: document.getElementById('nav-orchestracion'),
-        artefactools: document.getElementById('nav-artefactools'),
-        vault: document.getElementById('nav-vault'),
-        aprobaciones: document.getElementById('nav-aprobaciones'),
-        health: document.getElementById('nav-health'),
-      };
-      const views = {
-        orchestracion: document.getElementById('view-orchestracion'),
-        artefactools: document.getElementById('view-artefactools'),
-        vault: document.getElementById('view-vault'),
-        aprobaciones: document.getElementById('view-aprobaciones'),
-        health: document.getElementById('view-health'),
-      };
-
-      function showView(name){
-        Object.values(navItems).forEach(el=>el.classList.remove('active'));
-        Object.values(views).forEach(el=>el.classList.remove('active'));
-        navItems[name].classList.add('active');
-        views[name].classList.add('active');
-        if(name==='artefactools') loadArtefactools();
-        if(name==='vault') loadVault();
-        if(name==='aprobaciones') loadAprobaciones();
-        if(name==='health') document.getElementById('health-result').classList.add('hidden');
-      }
-
-      Object.entries(navItems).forEach(([name, el])=>{
-        el.addEventListener('click',()=>showView(name));
-      });
-
-      // ---------- Utilidades ----------
-      function addBubble(text,kind){
-        const msgs=document.getElementById('msgs');
-        const el=document.createElement('div');
-        el.className='bubble '+kind;
-        el.textContent=text;
+      function addBubble(text, kind){
+        const el = document.createElement('div');
+        el.className = 'bubble ' + kind;
+        el.innerHTML = text;
         el.classList.add('fade-in');
-        msgs.appendChild(el);
-        msgs.scrollTop=msgs.scrollHeight;
-      }
-      function setStatus(text,ok){
-        const s=document.getElementById('status');
-        s.textContent=text;
-        s.style.color=ok?'var(--accent-2)':'var(--danger)';
-      }
-      function showAlert(containerId,text,type){
-        const c=document.getElementById(containerId);
-        const old=c.querySelector('.alert');
-        if(old) old.remove();
-        const a=document.createElement('div');
-        a.className='alert '+type;
-        a.textContent=text;
-        c.insertBefore(a,c.firstChild);
-        setTimeout(()=>a.remove(),5000);
+        chatMsgs.appendChild(el);
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        return el;
       }
 
-      // ---------- API ----------
-      async function api(path,opts={}){
-        const r=await fetch(base+path,{
-          headers:{'Content-Type':'application/json',...opts.headers},
-          ...opts
-        });
-        return r.json();
-      }
-
-      // ---------- Orquestación ----------
-      async function load(){
-        try{
-          const [m,a]=await Promise.all([
-            api('/api/messages'),
-            api('/api/artefactools')
-          ]);
-          const msgs=document.getElementById('msgs');
-          if(m.messages&&m.messages.length){
-            msgs.innerHTML='';
-            m.messages.slice().reverse().forEach(mm=>addBubble(mm.content,mm.role==='user'?'me':'them'));
-          }
-          renderArtefactools(a.items||[]);
-          setStatus('API viva · '+(a.items||[]).length+' artefactool(es)',true);
-        }catch(e){ setStatus('Error: '+e.message,false); }
-      }
-      function renderArtefactools(items){
-        const c=document.getElementById('artefactools-list');
-        if(!items||items.length===0){ c.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0">Ninguna activada aún.</div>'; return; }
-        c.innerHTML='';
-        items.forEach(a=>{
-          const el=document.createElement('div');
-          el.className='artefactool-item'+(activeArtefactool===a.instance_id?' active':'');
-          el.innerHTML='<div class="head"><div class="name">'+escapeHtml(a.name)+'</div></div><div class="meta">'+a.instance_id.slice(0,12)+'…</div>';
-          el.onclick=function(){
-            activeArtefactool=a.instance_id;
-            document.querySelectorAll('.artefactool-item').forEach(x=>x.classList.remove('active'));
-            el.classList.add('active');
-            document.getElementById('canvas-title').textContent=a.name;
-            document.getElementById('canvas-sub').textContent='Lienzo de '+a.name+' · estado aislado en Durable Object';
-            document.getElementById('canvas-placeholder').classList.add('hidden');
-            document.getElementById('canvas-frame').classList.remove('hidden');
-            document.getElementById('canvas-frame').src=base+'/agents/'+encodeURIComponent(a.name)+'/v1/state';
-            addBubble('Artefactool "'+a.name+'" seleccionada.','them');
-          };
-          c.appendChild(el);
-        });
-      }
       async function sendMsg(){
-        const input=document.getElementById('msg');
-        const text=input.value.trim();
+        const text = chatInput.value.trim();
         if(!text) return;
-        const btn=document.getElementById('send');
-        btn.disabled=true;
-        addBubble(text,'me');
-        input.value='';
-        setStatus('Enviando…',true);
+        chatSend.disabled = true;
+        addBubble(text, 'me');
+        chatInput.value = '';
         try{
-          const d=await api('/api/messages',{method:'POST',body:JSON.stringify({role:'user',content:text})});
-          if(d.ok){
-            setTimeout(()=>{
-              addBubble('Recibido y guardado en la sesión (UserSessionDO + SQLite).','them');
-              setStatus('Mensaje guardado.',true);
-            },300);
-          }else{ setStatus('Error: '+(d.error||'desconocido'),false); }
-        }catch(e){ setStatus('Error de red: '+e.message,false); }
-        finally{ btn.disabled=false; input.focus(); }
-      }
-      async function activateArtefactool(name){
-        try{
-          const d=await api('/api/artefactools',{method:'POST',body:JSON.stringify({name})});
-          if(d.ok){
-            addBubble('Artefactool "'+name+'" activada.','them');
-            load();
-            return true;
-          }else{ setStatus('Error: '+(d.error||'desconocido'),false); return false; }
-        }catch(e){ setStatus('Error de red: '+e.message,false); return false; }
-      }
-      document.getElementById('send').addEventListener('click',sendMsg);
-      document.getElementById('msg').addEventListener('keydown',e=>{ if(e.key==='Enter') sendMsg(); });
-
-      document.getElementById('btn-virtualize').addEventListener('click',()=>{
-        const url=prompt('URL del repositorio GitHub:');
-        if(!url) return;
-        const name='repo-'+Date.now();
-        activateArtefactool(name).then(ok=>{
-          if(!ok) return;
-          setTimeout(()=>{
-            api('/agents/'+encodeURIComponent(name)+'/v1/virtualize',{method:'POST',body:JSON.stringify({repo_url:url})}).then(d=>{
-              if(d.ok){
-                addBubble('Repo virtualizado: '+d.repo+' ('+d.status+')','them');
-                document.getElementById('canvas-title').textContent=name;
-                document.getElementById('canvas-sub').textContent='Repo: '+d.repo+' · '+d.status;
-                document.getElementById('canvas-placeholder').classList.add('hidden');
-                document.getElementById('canvas-frame').classList.remove('hidden');
-                document.getElementById('canvas-frame').src=base+'/agents/'+encodeURIComponent(name)+'/v1/state';
-              }else{ setStatus('Error al virtualizar: '+(d.error||'desconocido'),false); }
-            });
-          },500);
-        });
-      });
-      document.getElementById('btn-mcp').addEventListener('click',()=>{
-        if(!activeArtefactool){ setStatus('Selecciona una Artefactool primero.',false); return; }
-        api('/agents/'+encodeURIComponent(activeArtefactool)+'/mcp',{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list',params:{}})}).then(d=>{
-          if(d.result&&d.result.tools){
-            addBubble('MCP tools: '+d.result.tools.map(t=>t.name).join(', '),'them');
-          }else{ setStatus('MCP no disponible para esta artefactool.',false); }
-        });
-      });
-
-      // ---------- Artefactools view ----------
-      async function loadArtefactools(){
-        try{
-          const d=await api('/api/artefactools');
-          const tbody=document.getElementById('artefactools-tbody');
-          const empty=document.getElementById('artefactools-empty');
-          const table=document.getElementById('artefactools-table');
-          const items=d.items||[];
-          if(items.length===0){ table.classList.add('hidden'); empty.classList.remove('hidden'); return; }
-          table.classList.remove('hidden'); empty.classList.add('hidden');
-          tbody.innerHTML='';
-          items.forEach(a=>{
-            const tr=document.createElement('tr');
-            tr.innerHTML='<td><strong>'+escapeHtml(a.name)+'</strong></td><td><code style="font-size:11px">'+a.instance_id.slice(0,16)+'…</code></td><td><span class="badge ok">Activa</span></td><td><button class="btn btn-sm btn-ghost" onclick="irAOArtefactool('+JSON.stringify(a.name)+')">Ver lienzo</button></td>';
-            tbody.appendChild(tr);
+          const r = await fetch(base + '/api/messages', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({role: 'user', content: text})
           });
-        }catch(e){ setStatus('Error cargando artefactools: '+e.message,false); }
-      }
-      window.irAOArtefactool=function(name){
-        activeArtefactool=name;
-        showView('orchestracion');
-        setTimeout(()=>{
-          document.querySelectorAll('.artefactool-item').forEach(x=>{
-            if(x.textContent.includes(name)){ x.classList.add('active'); activeArtefactool=name; }
-            else x.classList.remove('active');
-          });
-          document.getElementById('canvas-title').textContent=name;
-          document.getElementById('canvas-sub').textContent='Lienzo de '+name+' · estado aislado en Durable Object';
-          document.getElementById('canvas-placeholder').classList.add('hidden');
-          document.getElementById('canvas-frame').classList.remove('hidden');
-          document.getElementById('canvas-frame').src=base+'/agents/'+encodeURIComponent(name)+'/v1/state';
-        },50);
-      };
-      document.getElementById('btn-crear-artefactool').addEventListener('click',()=>{
-        const input=document.getElementById('new-artefactool-name');
-        const name=input.value.trim();
-        if(!name){ setStatus('Escribe un nombre.',false); return; }
-        activateArtefactool(name).then(ok=>{ if(ok){ input.value=''; loadArtefactools(); } });
-      });
-
-      // ---------- Vault view ----------
-      async function loadVault(){
-        try{
-          const d=await api('/vault/credentials');
-          const tbody=document.getElementById('vault-tbody');
-          const empty=document.getElementById('vault-empty');
-          const table=document.getElementById('vault-table');
-          const items=d.services||[];
-          if(items.length===0){ table.classList.add('hidden'); empty.classList.remove('hidden'); return; }
-          table.classList.remove('hidden'); empty.classList.add('hidden');
-          tbody.innerHTML='';
-          items.forEach(s=>{
-            const tr=document.createElement('tr');
-            tr.innerHTML='<td><strong>'+escapeHtml(s.service)+'</strong></td><td><span class="badge ok">Configurada</span></td><td><button class="btn btn-sm btn-ghost" onclick="eliminarCredencial('+JSON.stringify(s.service)+')">Eliminar</button></td>';
-            tbody.appendChild(tr);
-          });
-        }catch(e){ setStatus('Error cargando bóveda: '+e.message,false); }
-      }
-      window.eliminarCredencial=function(service){
-        setStatus('Eliminar no implementado en el DO (solo guardar y listar).',false);
-      };
-      document.getElementById('btn-guardar-credencial').addEventListener('click',async()=>{
-        const sv=document.getElementById('vault-service');
-        const val=document.getElementById('vault-value');
-        if(!sv.value||!val.value){ setStatus('Servicio y valor requeridos.',false); return; }
-        try{
-          const d=await api('/vault/credentials',{method:'POST',body:JSON.stringify({service:sv.value,value:val.value})});
-          if(d.ok){
-            setStatus('Credencial guardada (cifrada AES-GCM).',true);
-            sv.value=''; val.value='';
-            loadVault();
-          }else{ setStatus('Error: '+(d.error||'desconocido'),false); }
-        }catch(e){ setStatus('Error de red: '+e.message,false); }
-      });
-
-      // ---------- Aprobaciones view ----------
-      async function loadAprobaciones(){
-        try{
-          const d=await api('/vault/approvals');
-          const tbody=document.getElementById('aprobaciones-tbody');
-          const empty=document.getElementById('aprobaciones-empty');
-          const table=document.getElementById('aprobaciones-table');
-          const items=d.items||[];
-          if(items.length===0){ table.classList.add('hidden'); empty.classList.remove('hidden'); return; }
-          table.classList.remove('hidden'); empty.classList.add('hidden');
-          tbody.innerHTML='';
-          items.forEach(a=>{
-            const tr=document.createElement('tr');
-            tr.innerHTML='<td><strong>'+escapeHtml(a.service)+'</strong></td><td>'+escapeHtml(a.action)+'</td><td><span class="badge pending">Pendiente</span></td><td>'+new Date(a.created_at).toLocaleString()+'</td><td><button class="btn btn-sm btn-ghost" onclick="aprobar('+a.id+',\'approve\')">Aprobar</button> <button class="btn btn-sm btn-ghost" onclick="aprobar('+a.id+',\'reject\')">Rechazar</button></td>';
-            tbody.appendChild(tr);
-          });
-        }catch(e){ setStatus('Error cargando aprobaciones: '+e.message,false); }
-      }
-      window.aprobar=function(id,accion){
-        api('/vault/approvals',{method:'POST',body:JSON.stringify({approval_id:id,action:accion})}).then(d=>{
-          if(d.ok){ setStatus('Aprobación '+accion+'.',true); loadAprobaciones(); }
-          else{ setStatus('Error: '+(d.error||'desconocido'),false); }
-        });
-      };
-
-      // ---------- Health ----------
-      document.getElementById('btn-check-health').addEventListener('click',async()=>{
-        const u=document.getElementById('health-url').value||'/health';
-        try{
-          const r=await fetch(base+u);
-          const d=await r.json();
-          document.getElementById('health-json').textContent=JSON.stringify(d,null,2);
-          document.getElementById('health-result').classList.remove('hidden');
+          const d = await r.json();
+          if(d.ok && d.reply){
+            setTimeout(function(){
+              addBubble(d.reply, 'them');
+            }, 400);
+          } else {
+            addBubble('Error: ' + (d.error || 'desconocido'), 'them');
+          }
         }catch(e){
-          document.getElementById('health-json').textContent='Error: '+e.message;
-          document.getElementById('health-result').classList.remove('hidden');
+          addBubble('Error de red: ' + e.message, 'them');
+        }finally{
+          chatSend.disabled = false;
+          chatInput.focus();
         }
+      }
+
+      chatSend.addEventListener('click', sendMsg);
+      chatInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMsg(); }
       });
 
-      // ---------- Init ----------
-      fetch(base+'/health').then(r=>r.json()).then(d=>setStatus('API viva en '+d.service,true)).catch(()=>setStatus('API no disponible.',false));
-      load();
+      document.querySelectorAll('.nav-item').forEach(function(item){
+        item.addEventListener('click', function(){
+          document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+          item.classList.add('active');
+        });
+      });
+
+      fetch(base + '/health').then(r=>r.json()).catch(()=>{});
     })();
-    function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;" }[m]));}
   </script>
 </body>
 </html>
