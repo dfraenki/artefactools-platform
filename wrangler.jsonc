@@ -1,0 +1,30 @@
+// Configuración declarativa de despliegue para artefactools.com
+// Estándar Cloudflare Workers 2026 con Durable Objects (storage: sqlite)
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "artefactools-platform",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./dist",
+    "run_worker_first": ["/agents/*", "/api/*", "/mcp/*"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "USER_SESSION", "class_name": "UserSessionDO" },
+      { "name": "ARTEFACTOOL", "class_name": "ArtefactoolDO" },
+      { "name": "VAULT", "class_name": "CredentialVaultDO" }
+    ]
+  },
+  "exports": {
+    "UserSessionDO": { "type": "durable-object", "storage": "sqlite" },
+    "ArtefactoolDO": { "type": "durable-object", "storage": "sqlite" },
+    "CredentialVaultDO": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "worker_loaders": [{ "binding": "LOADER" }],
+  "ai": { "binding": "AI" }
+}

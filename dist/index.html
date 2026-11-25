@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>artefactools — Arsenal y Marketplace de Agentes de IA</title>
+<meta name="description" content="Plataforma modular de orquestación de agentes de inteligencia artificial y herramientas agénticas distribuidas sobre Cloudflare Workers y Durable Objects.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0c10;
+    --surface:#12141d;
+    --surface-2:#161925;
+    --border:#242a38;
+    --ink:#e8eaed;
+    --muted:#8b93a5;
+    --accent:#7c5cff;
+    --accent-2:#22d3ee;
+    --success:#34d399;
+    --danger:#f87171;
+    --radius:12px;
+    --shadow:0 20px 40px -10px rgba(0,0,0,0.5);
+    --maxw:960px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-font-smoothing:antialiased}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:Inter,system-ui,sans-serif;
+    line-height:1.55;
+    min-height:100vh;
+  }
+  a{color:var(--accent-2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  img{max-width:100%;display:block}
+  .container{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .skip{position:absolute;left:-10000px}
+
+  /* Header */
+  header{position:sticky;top:0;z-index:50;background:rgba(11,12,16,0.6);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:10;font-weight:700;letter-spacing:-0.5px}
+  .mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px}
+  .nav-links{display:flex;gap:26px}
+  .nav-links a{color:var(--muted);font-size:14px;font-weight:500}
+  .nav-links a:hover{color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8;height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;transition:transform .1s,border-color .2s,box-shadow .2s}
+  .btn:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-primary:hover{background:#6a46e0;border-color:#6a46e0}
+  .btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn-ghost:hover{color:var(--ink);background:var(--surface-2)}
+
+  /* Hero */
+  .hero{padding:96px 0 64px}
+  .hero .kicker{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent-2);margin-bottom:14px}
+  .hero h1{font-size:42px;line-height:1.1;letter-spacing:-0.02em;margin-bottom:20px}
+  .hero h1 b{color:var(--accent-2)}
+  .hero p{color:var(--muted);font-size:18px;max-width:60ch;margin-bottom:30px}
+  .hero-actions{display:flex;flex-wrap:wrap;gap:12}
+  .hero-visual{margin-top:60px;display:flex;justify-content:center}
+  .diagram{width:100%;max-width:640px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:var(--shadow)}
+  .diagram .title{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+  .flow{display:flex;flex-direction:column;gap:14px}
+  .step{display:flex;align-items:center;gap:12;padding:12px;border-radius:10px;border:1px solid transparent;background:var(--surface-2)}
+  .step:hover{border-color:var(--border)}
+  .step.num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;flex-shrink:0}
+  .step .label{font-size:14px;font-weight:600}
+  .step .sub{font-size:12px;color:var(--muted)}
+  .arrow{flex:none;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--muted);margin-left:2px}
+
+  /* Section */
+  section{padding:72px 0}
+  .section-head{margin-bottom:40px;text-align:center}
+  .section-head .kicker{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .section-head h2{font-size:30px;line-height:1.15;letter-spacing:-0.01em;margin-bottom:14px}
+  .section-head p{color:var(--muted);font-size:17px;max-width:62ch;margin:0 auto}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px}
+  .card h3{font-size:17px;margin-bottom:10px}
+  .card p{color:var(--muted);font-size:14.5px}
+  .card .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--accent-2);margin-top:14px}
+
+  /* Two-col feature */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+  @media(max-width:720px){.two-col{grid-template-columns:1fr}}
+  .feature-img{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;height:260px;display:grid;place-items:center;color:var(--muted);font-size:13px}
+
+  /* Demo / interactive */
+  .demo{background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:32px}
+  .demo .title{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  .demo h2{font-size:24px;margin-bottom:18px}
+  .chat{border:1px solid var(--border);border-radius:12px;background:var(--surface);height:260px;overflow:hidden;display:flex;flex-direction:column;margin-bottom:16px}
+  .chat .msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10}
+  .bubble{max-width:75%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.45}
+  .bubble.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:2px}
+  .bubble.them{background:var(--surface-2);color:var(--ink);border:1px solid var(--border);align-self:flex-start;border-bottom-left-radius:2px}
+  .chat-input{display:flex;gap:8;padding:10px;border-top:1px solid var(--border)}
+  .chat-input input{flex:1;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--ink);padding:10px 14px;font:inherit}
+  .chat-input input:focus{outline:none;border-color:var(--accent)}
+  .status{font-size:12px;color:var(--muted);margin-top:8px;min-height:16px}
+
+  /* Footer */
+  footer{border-top:1px solid var(--border);padding:48px 0;color:var(--muted);font-size:13px}
+  .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  .footer-links{display:flex;gap:24px;font-size:13px}
+  .footer-links a{color:var(--muted)}
+  .footer-links a:hover{color:var(--ink)}
+
+  /* Utilities */
+  .hidden{display:none}
+  .spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .fade-in{animation:fadeIn .4s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+  <a href="#content" class="skip">Saltar al contenido</a>
+
+  <header>
+    <div class="container nav">
+      <div class="brand"><div class="mark">A</div><span>artefactools</span></div>
+      <nav class="nav-links">
+        <a href="#como-funciona">Cómo funciona</a>
+        <a href="#modulos">Modulos</a>
+        <a href="#demo">Demo en vivo</a>
+      </nav>
+      <a class="btn btn-primary" href="https://github.com/dfraenki/artefactools" target="_blank" rel="noopener">Código en GitHub</a>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero">
+      <div class="container">
+        <div class="kicker">Arsenal y Marketplace de Agentes de IA</div>
+        <h1>Cada herramienta, una <b>instancia autónoma</b>.</h1>
+        <p>Plataforma modular de orquestación y ejecución de agentes de inteligencia artificial y herramientas agénticas distribuidas. Sin monolitos, sin chatbots cerrados: cada Artefactool es una micro-unidad con su propio entorno de cómputo, memoria aislada y estado.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#demo">Probar la demo</a>
+          <a class="btn btn-ghost" href="#modulos">Ver catálogo</a>
+        </div>
+        <div class="hero-visual">
+          <div class="diagram">
+            <div class="title">Plano de control global → Durable Objects aislados</div>
+            <div class="flow">
+              <div class="step"><div class="num">1</div><div><div class="label">Petición HTTP / WebSocket / MCP</div><div class="sub">Edge ingress stateless</div></div><div class="arrow"></div></div>
+              <div class="step"><div class="num">2</div><div><div class="label">Worker Central (index.ts)</div><div class="sub">Valida auth, enruta por RPC</div></div><div class="arrow"></div></div>
+              <div class="step"><div class="num">3</div><div><div class="label">UserSessionDO / ArtefactoolDO / CredentialVaultDO</div><div class="sub">SQLite aislado por instancia</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-funciona">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Cómo funciona</div>
+          <h2>Un enrutador, muchos actores independientes</h2>
+          <p>Una petición llega al Worker central sin estado y se despacha mediante Workers RPC al Durable Object correspondiente. Cada usuario y cada Artefactool activa es una instancia global única con su propia base de datos SQLite.</p>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Usuario → UserSessionDO</h3>
+            <p>Cada usuario registrado tiene su propio orquestador conversacional con historial persistente en SQLite local.</p>
+            <span class="tag">Estado fuerte</span>
+          </div>
+          <div class="card">
+            <h3>Artefactool → ArtefactoolDO</h3>
+            <p>Cada herramienta activada del catálogo ejecuta en su propia instancia, aislada del resto, con entorno de cómputo propio.</p>
+            <span class="tag">Aislamiento</span>
+          </div>
+          <div class="card">
+            <h3>Credenciales → CredentialVaultDO</h3>
+            <p>Las claves API se guardan cifradas y el agente nunca las ve en texto plano; la Bóveda inyecta la autorización por RPC.</p>
+            <span class="tag">Zero-leak</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="modulos">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Catálogo de módulos</div>
+          <h2>Artefactools preconstruidas</h3>
+          <p>Activa con un clic cualquier utilidad del catálogo. Cada una corre en su propio contenedor o aislado V8 según lo que necesite.</p>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>Visual Web Copilot</h3>
+            <p>Control de aplicaciones web en tiempo real con vista previa dividida y navegador aislado vía Containers & Sandbox SDK.</p>
+            <span class="tag">Automatización web</span>
+          </div>
+          <div class="card">
+            <h3>Repo Virtualizer</h3>
+            <p>Convierte cualquier repositorio de GitHub en una aplicación desplegada con un clic mediante Cloudflare Workflows.</p>
+            <span class="tag">GitHub-to-App</span>
+          </div>
+          <div class="card">
+            <h3>Smart Harness Híbrido</h3>
+            <p>Combina Workers AI (subtareas rápidas) con modelos frontera vía AI Gateway, con conmutación por error automática.</p>
+            <span class="tag">Multi-modelo</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Demo en vivo</div>
+          <h2>Prueba el orquestador de sesión</h3>
+          <p>Envía un mensaje al <code>UserSessionDO</code> desplegado en Cloudflare Workers y observa la respuesta.</p>
+        </div>
+        <div class="demo">
+          <div class="title">API · <code>/api/messages</code></div>
+          <div class="chat" id="chat">
+            <div class="msgs" id="msgs">
+              <div class="bubble them">Sistema listo. Escribe un mensaje para guardarlo en la sesión del usuario (Durable Object con SQLite).</div>
+            </div>
+          </div>
+          <div class="chat-input">
+            <input id="msg" placeholder="Escribe un mensaje…" autocomplete="off">
+            <button class="btn btn-primary" id="send">Enviar</button>
+          </div>
+          <div class="status" id="status">Conectado a la API del Worker.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <div>artefactools.com · Plataforma de agentes modulares sobre Cloudflare Workers</div>
+      <div class="footer-links">
+        <a href="#">Documentación</a>
+        <a href="#">Catálogo</a>
+        <a href="#">Estado</a>
+        <a href="#">Privacidad</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function(){
+      const base = window.location.origin;
+      const msgs = document.getElementById('msgs');
+      const input = document.getElementById('msg');
+      const send = document.getElementById('send');
+      const status = document.getElementById('status');
+
+      function addBubble(text, kind){
+        const el = document.createElement('div');
+        el.className = 'bubble ' + kind;
+        el.textContent = text;
+        el.classList.add('fade-in');
+        msgs.appendChild(el);
+        msgs.scrollTop = msgs.scrollHeight;
+        return el;
+      }
+
+      function setStatus(text, ok){
+        status.textContent = text;
+        status.style.color = ok ? 'var(--accent-2)' : 'var(--danger)';
+      }
+
+      async function load(){
+        try{
+          const r = await fetch(base + '/api/messages');
+          const data = await r.json();
+          if(data.messages && data.messages.length){
+            msgs.innerHTML = '';
+            data.messages.slice().reverse().forEach(function(m){
+              addBubble(m.content, m.role === 'user' ? 'me' : 'them');
+            });
+            setStatus('Historial cargado (' + data.messages.length + ' mensajes).', true);
+          }
+        }catch(e){
+          setStatus('No se pudo cargar el historial: ' + e.message, false);
+        }
+      }
+
+      async function sendMsg(){
+        const text = input.value.trim();
+        if(!text) return;
+        send.disabled = true;
+        addBubble(text, 'me');
+        input.value = '';
+        setStatus('Enviando…', true);
+        try{
+          const r = await fetch(base + '/api/messages', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({role: 'user', content: text})
+          });
+          const data = await r.json();
+          if(data.ok){
+            // eco de respuesta del agente
+            setTimeout(function(){
+              addBubble('Recibido y guardado en la sesión (UserSessionDO + SQLite).', 'them');
+              setStatus('Mensaje guardado correctamente.', true);
+            }, 400);
+          } else {
+            setStatus('Error: ' + (data.error || 'desconocido'), false);
+          }
+        }catch(e){
+          setStatus('Error de red: ' + e.message, false);
+        }finally{
+          send.disabled = false;
+          input.focus();
+        }
+      }
+
+      send.addEventListener('click', sendMsg);
+      input.addEventListener('keydown', function(e){ if(e.key === 'Enter') sendMsg(); });
+
+      // health check on load
+      fetch(base + '/health').then(function(r){ return r.json(); }).then(function(d){
+        setStatus('API viva en ' + d.service + ' · ' + new Date(d.ts).toLocaleTimeString(), true);
+      }).catch(function(){
+        setStatus('API no disponible (Worker no desplegado o sin respuesta).', false);
+      });
+
+      load();
+    })();
+  </script>
+</body>
+</html>
