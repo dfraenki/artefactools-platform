@@ -432,9 +432,11 @@
           }
           artefactoolsList.innerHTML = '';
           items.forEach(a=>{
+            const isGV = a.name.startsWith('gv-');
+            const icon = isGV ? '🔄' : '📦';
             const el = document.createElement('div');
             el.className = 'nav-item';
-            el.innerHTML = '<span class="icon">📦</span><span>'+escapeHtml(a.name)+'</span>';
+            el.innerHTML = '<span class="icon">'+icon+'</span><span>'+escapeHtml(a.name)+'</span>';
             el.onclick = function(){
               openArtefactool(a.name);
             };
@@ -448,21 +450,35 @@
 
       async function openArtefactool(name){
         selectedArtefactool = name;
+        const isGV = name.startsWith('gv-');
+        const repoUrl = isGV ? 'https://github.com/' + name.slice(3).replace(/-/g, '/', 1) : null;
+
         try{
-          const r = await fetch(base + '/agents/' + encodeURIComponent(name) + '/v1/state');
+          const apiPath = isGV ? '/github-virtualizer/' : '/agents/';
+          const r = await fetch(base + apiPath + encodeURIComponent(name) + '/v1/state');
           const d = await r.json();
           const state = d.state || {};
           artifactPanel.classList.remove('hidden');
           artifactName.textContent = name;
-          artifactDesc.textContent = state.description || 'Artefactool desplegada desde ' + name;
-          artifactIcon.textContent = state.icon || '📦';
-          artifactBadge.textContent = state.type || 'SQLITE DO';
-          artifactOpenApp.onclick = function(){
-            window.open(base + '/agents/' + encodeURIComponent(name) + '/v1/state', '_blank');
-          };
-          artifactOpenVisor.onclick = function(){
-            window.open(base + '/agents/' + encodeURIComponent(name) + '/mcp', '_blank');
-          };
+          artifactDesc.textContent = isGV ? ('Virtualizador GitHub: ' + (repoUrl || state.repo_url || 'desconocido')) : (state.description || 'Artefactool desplegada desde ' + name);
+          artifactIcon.textContent = isGV ? '🔄' : (state.icon || '📦');
+          artifactBadge.textContent = isGV ? 'GITHUB VIRTUALIZER' : (state.type || 'SQLITE DO');
+
+          if (isGV && repoUrl) {
+            artifactOpenApp.onclick = function(){
+              window.open(base + '/github-virtualizer/' + encodeURIComponent(name) + '/?repo_url=' + encodeURIComponent(repoUrl), '_blank');
+            };
+            artifactOpenVisor.onclick = function(){
+              window.open(base + '/github-virtualizer/' + encodeURIComponent(name) + '/mcp', '_blank');
+            };
+          } else {
+            artifactOpenApp.onclick = function(){
+              window.open(base + '/agents/' + encodeURIComponent(name) + '/v1/state', '_blank');
+            };
+            artifactOpenVisor.onclick = function(){
+              window.open(base + '/agents/' + encodeURIComponent(name) + '/mcp', '_blank');
+            };
+          }
         }catch(e){
           artifactDesc.textContent = 'Error cargando detalles: ' + e.message;
         }
@@ -479,7 +495,7 @@
             doItems.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px">Sin Durable Objects instalados aún.</div>';
             return;
           }
-          const icons = {repo:'📦',vault:'🔐',harness:'⚡',copilot:'👁️',session:'💬'};
+          const icons = {repo:'📦',vault:'🔐',harness:'⚡',copilot:'👁️',session:'💬',gv:'🔄'};
           items.forEach(a=>{
             const key = a.name.split('-')[0];
             const icon = icons[key] || '📦';

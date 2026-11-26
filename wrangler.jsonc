@@ -9,7 +9,7 @@
   },
   "assets": {
     "directory": "./dist",
-    "run_worker_first": ["/agents/*", "/api/*", "/mcp/*", "/vault/*"]
+    "run_worker_first": ["/agents/*", "/api/*", "/mcp/*", "/vault/*", "/github-virtualizer/*"]
   },
   "durable_objects": {
     "bindings": [
@@ -17,7 +17,8 @@
       { "name": "ARTEFACTOOL", "class_name": "ArtefactoolDO" },
       { "name": "VAULT", "class_name": "CredentialVaultDO" },
       { "name": "SMART_HARNESS", "class_name": "SmartHarnessDO" },
-      { "name": "VISUAL_WEB_COPILOT", "class_name": "VisualWebCopilotDO" }
+      { "name": "VISUAL_WEB_COPILOT", "class_name": "VisualWebCopilotDO" },
+      { "name": "GITHUB_VIRTUALIZER", "class_name": "GitHubVirtualizerDO" }
     ]
   },
   "exports": {
@@ -25,7 +26,8 @@
     "ArtefactoolDO": { "type": "durable-object", "storage": "sqlite" },
     "CredentialVaultDO": { "type": "durable-object", "storage": "sqlite" },
     "SmartHarnessDO": { "type": "durable-object", "storage": "sqlite" },
-    "VisualWebCopilotDO": { "type": "durable-object", "storage": "sqlite" }
+    "VisualWebCopilotDO": { "type": "durable-object", "storage": "sqlite" },
+    "GitHubVirtualizerDO": { "type": "durable-object", "storage": "sqlite" }
   },
   "ai": { "binding": "AI" }
 }

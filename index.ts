@@ -10,6 +10,7 @@ interface Env {
   VAULT: DurableObjectNamespace;
   SMART_HARNESS: DurableObjectNamespace;
   VISUAL_WEB_COPILOT: DurableObjectNamespace;
+  GITHUB_VIRTUALIZER: DurableObjectNamespace;
   AI: any;
   ASSETS: Fetcher;
 }
@@ -707,38 +708,71 @@ export class UserSessionDO extends DurableObject {
     );
 
     // Detectar si el usuario pide crear/virtualizar un repositorio de GitHub
-    const githubMatch = userMessage.match(/https?:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\.git)?(?:\/|$)/);
+    const githubMatch = userMessage.match(/https?:\/\/(github\.com\/)([^\/]+)(\/[^\/]*)?/);
+    if (githubMatch) {
+      const repoUrl = githubMatch[0];
+      return await this.createArtefactoolFromIntent(repoUrl);
+    }
+
+    // Detectar intención de crear una artefactool desde lenguaje natural
+    const createKeywords = ['crea', 'crear', 'construye', 'construir', 'desarrolla', 'desarrollar', 'genera', 'generar', 'nueva artefactool', 'nueva herramienta', 'virtualiza', 'instala'];
+    const isCreateIntent = createKeywords.some(k => userMessage.toLowerCase().includes(k));
+
+    if (isCreateIntent) {
+      return await this.createArtefactoolFromIntent(userMessage);
+    }
+
+    const response = await this.env.AI.run('@cf/mistral/mistral-7b-instruct-v0.1', {
+      prompt: `Eres el orquestador conversacional de artefactools.com. Responde al usuario y coordina sus herramientas. Si el usuario menciona una URL de GitHub o pide crear una herramienta, puedes ofrecerle crear una artefactool aislada. Usuario dice: ${userMessage}`,
+    });
+
+    const reply = String((response as any).response || (response as any).text || response);
+    this.ctx.storage.sql.exec(
+      "INSERT INTO user_chat_history (role, content) VALUES ('assistant', ?)",
+      reply
+    );
+    return reply;
+  }
+
+  async createArtefactoolFromIntent(intent: string): Promise<string> {
+    // Extraer URL de GitHub si está presente en el intent
+    const githubMatch = intent.match(/https?:\/\/github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?(?:\/|$)/);
+
     if (githubMatch) {
       const repoUrl = githubMatch[0];
       const owner = githubMatch[1];
       const repo = githubMatch[2];
-      const artefactoolName = 'repo-' + owner + '-' + repo;
+      const artefactoolName = 'gv-' + owner + '-' + repo;
 
       try {
-        // Llamada directa por Workers RPC al ArtefactoolDO (no fetch HTTP)
-        const stub = this.env.ARTEFACTOOL.idFromName(artefactoolName);
-        const artefactoolStub = this.env.ARTEFACTOOL.get(stub);
-        const result = await artefactoolStub.deployRepo({
-          repoUrl,
-          runtimeType: 'dynamic_worker',
-          entryPoint: 'index.js',
-        });
+        // Usar Workers RPC directo al GitHubVirtualizerDO
+        const stub = this.env.GITHUB_VIRTUALIZER.get(this.env.GITHUB_VIRTUALIZER.idFromName(artefactoolName));
+
+        // Paso 1: Analizar el repositorio con IA
+        const analysis = await stub.analyzeRepo(repoUrl);
+
+        // Paso 2: Generar script de instalación con IA
+        const installScript = await stub.generateInstallScript(repoUrl);
+
+        // Paso 3: Desplegar el repositorio
+        const deployResult = await stub.deployRepo(repoUrl);
 
         // Registrar la artefactool como activa en esta sesión
         const id = crypto.randomUUID();
         this.ctx.storage.sql.exec(
           'INSERT OR REPLACE INTO active_artefactools (id, tool_name, do_binding_id, status) VALUES (?, ?, ?, ?)',
-          id, artefactoolName, artefactoolStub.id.toString(), 'active'
+          id, artefactoolName, stub.id.toString(), 'active'
         );
 
-        const reply = `✅ He creado la artefactool "${artefactoolName}" a partir del repositorio ${repoUrl}.\n\nEstado: ${result.status}\nInstancia Durable Object: ${result.appId}\n\nLa herramienta está aislada en su propio Durable Object con SQLite dedicado. Puedes acceder a su estado y MCP desde el panel lateral.`;
+        // Guardar la intención y especificación generada
         this.ctx.storage.sql.exec(
           "INSERT INTO user_chat_history (role, content) VALUES ('assistant', ?)",
-          reply
+          `✅ He creado la artefactool virtualizador "${artefactoolName}" a partir del repositorio ${repoUrl}.\n\n${deployResult.message}\n\nAnálisis de IA: ${(analysis as any).analysis?.slice(0, 200)}...\n\nScript de instalación generado:\n${installScript}\n\nLa herramienta está aislada en su propio Durable Object con SQLite dedicado. Accede a su panel en /github-virtualizer/${artefactoolName}/?repo_url=${encodeURIComponent(repoUrl)}`
         );
-        return reply;
+
+        return `✅ He creado la artefactool virtualizador "${artefactoolName}" a partir del repositorio ${repoUrl}.\n\nEstado: ${deployResult.status}\n${deployResult.message}\n\nLa herramienta está aislada en su propio Durable Object con SQLite dedicado.\n\nPróximos pasos:\n- Analiza el repositorio: POST /github-virtualizer/${artefactoolName}/v1/analyze\n- Obtén el script de instalación: POST /github-virtualizer/${artefactoolName}/v1/install-script\n- Despliega: POST /github-virtualizer/${artefactoolName}/v1/deploy\n- Estado: GET /github-virtualizer/${artefactoolName}/v1/status?repo_url=${encodeURIComponent(repoUrl)}\n- Abrir app: /github-virtualizer/${artefactoolName}/?repo_url=${encodeURIComponent(repoUrl)}`;
       } catch (e) {
-        const reply = `❌ No se pudo crear la artefactool: ${String(e)}`;
+        const reply = `❌ No se pudo crear el virtualizador de GitHub: ${String(e)}`;
         this.ctx.storage.sql.exec(
           "INSERT INTO user_chat_history (role, content) VALUES ('assistant', ?)",
           reply
@@ -747,16 +781,34 @@ export class UserSessionDO extends DurableObject {
       }
     }
 
-    const response = await this.env.AI.run('@cf/mistral/mistral-7b-instruct-v0.1', {
-      prompt: `Eres el orquestador conversacional de artefactools.com. Responde al usuario y coordina sus herramientas. Si el usuario menciona una URL de GitHub, puedes ofrecerle crear una artefactool aislada a partir de ese repositorio. Usuario dice: ${userMessage}`,
+    // Si no hay URL de GitHub, usar IA para generar una especificación de artefactool
+    const specPrompt = `
+Eres el meta-creador de artefactools de artefactools.com. El usuario quiere crear una herramienta con esta intención:
+
+"${intent}"
+
+Genera una especificación técnica para una nueva Artefactool (clase Durable Object) que incluya:
+1. Nombre de la clase (TypeScript, extends DurableObject)
+2. Tablas SQLite necesarias
+3. Métodos principales y sus parámetros
+4. Herramientas MCP que expone
+5. Descripción de qué hace
+
+Responde en formato JSON con claves: className, description, tables, methods, mcpTools.
+`;
+
+    const specResult = await this.env.AI.run('@cf/mistral/mistral-7b-instruct-v0.1', {
+      prompt: specPrompt,
     });
+    const specText = String((specResult as any).response || (specResult as any).text || specResult);
+
+    const reply = `📋 He generado la especificación de una nueva artefactool basada en tu intención:\n\n${specText}\n\nPara crear esta artefactool como un Durable Object real, dime "crea artefactool [nombre]" y la desplegaré en la plataforma.`;
 
     this.ctx.storage.sql.exec(
       "INSERT INTO user_chat_history (role, content) VALUES ('assistant', ?)",
-      String((response as any).response || (response as any).text || response)
+      reply
     );
-
-    return String((response as any).response || (response as any).text || response);
+    return reply;
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -822,6 +874,453 @@ export class UserSessionDO extends DurableObject {
       } catch (e) {
         return Response.json({ ok: false, error: String(e) }, { status: 500 });
       }
+    }
+
+    return new Response('not found', { status: 404 });
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 6. GitHubVirtualizerDO — Virtualizador Inteligente de Repositorios GitHub
+// Clona, analiza con Worker IA y despliega repositorios en un DO aislado
+// Esquema: github_repos, repo_files, install_scripts, ai_analysis, mcp_tools, state
+// -----------------------------------------------------------------------------
+
+export interface GitHubRepoInfo {
+  owner: string;
+  repo: string;
+  default_branch: string;
+  description?: string;
+  language?: string;
+}
+
+export class GitHubVirtualizerDO extends DurableObject {
+  constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS github_repos (
+        id TEXT PRIMARY KEY,
+        repo_url TEXT NOT NULL UNIQUE,
+        owner TEXT NOT NULL,
+        repo_name TEXT NOT NULL,
+        branch TEXT DEFAULT 'main',
+        status TEXT NOT NULL DEFAULT 'pending',
+        ai_analysis TEXT,
+        install_script TEXT,
+        entry_point TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS repo_files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_id TEXT NOT NULL,
+        path TEXT NOT NULL,
+        content TEXT,
+        size INTEGER,
+        type TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS install_scripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_id TEXT NOT NULL,
+        script TEXT NOT NULL,
+        ai_generated INTEGER DEFAULT 1,
+        executed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS ai_analysis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_id TEXT NOT NULL,
+        analysis_type TEXT NOT NULL,
+        result TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS mcp_tools (
+        name TEXT PRIMARY KEY,
+        description TEXT NOT NULL,
+        input_schema TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS state (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+
+    // Herramientas MCP por defecto
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO mcp_tools (name, description, input_schema) VALUES (?, ?, ?)",
+      'analyzeRepo', 'Analiza un repositorio GitHub con IA y detecta dependencias', '{"type":"object","properties":{"repo_url":{"type":"string"}}}'
+    );
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO mcp_tools (name, description, input_schema) VALUES (?, ?, ?)",
+      'generateInstallScript', 'Genera script de instalación con Worker IA', '{"type":"object","properties":{"repo_url":{"type":"string"}}}'
+    );
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO mcp_tools (name, description, input_schema) VALUES (?, ?, ?)",
+      'deployRepo', 'Despliega el repositorio virtualizado', '{"type":"object","properties":{"repo_url":{"type":"string"}}}'
+    );
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO mcp_tools (name, description, input_schema) VALUES (?, ?, ?)",
+      'getRepoStatus', 'Devuelve el estado del repositorio virtualizado', '{"type":"object","properties":{"repo_url":{"type":"string"}}}'
+    );
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO mcp_tools (name, description, input_schema) VALUES (?, ?, ?)",
+      'getRepoFiles', 'Lista los archivos del repositorio', '{"type":"object","properties":{"repo_url":{"type":"string"}}}'
+    );
+  }
+
+  async analyzeRepo(repoUrl: string): Promise<any> {
+    const match = repoUrl.match(/github\.com[:/]([^\/]+)\/([^\/]+?)(?:\.git)?$/);
+    if (!match) throw new Error('URL de GitHub inválida');
+    const owner = match[1];
+    const repo = match[2];
+
+    let repoInfo: GitHubRepoInfo;
+    try {
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      if (!res.ok) throw new Error(`GitHub API: ${res.status}`);
+      const data = await res.json();
+      repoInfo = {
+        owner,
+        repo: data.name,
+        default_branch: data.default_branch || 'main',
+        description: data.description,
+        language: data.language,
+      };
+    } catch (e) {
+      repoInfo = { owner, repo, default_branch: 'main', language: 'unknown' };
+    }
+
+    let packageJson: any = null;
+    let requirementsTxt: string | null = null;
+    try {
+      const pjRes = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${repoInfo.default_branch}/package.json`);
+      if (pjRes.ok) packageJson = await pjRes.json();
+    } catch {}
+    try {
+      const reqRes = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${repoInfo.default_branch}/requirements.txt`);
+      if (reqRes.ok) requirementsTxt = await reqRes.text();
+    } catch {}
+
+    const analysisPrompt = `
+Eres un experto en DevOps y despliegue de software. Analiza este repositorio GitHub y genera un plan de instalación:
+
+Repositorio: ${owner}/${repo}
+Descripción: ${repoInfo.description || 'N/A'}
+Lenguaje principal: ${repoInfo.language}
+Branch: ${repoInfo.default_branch}
+
+package.json: ${packageJson ? JSON.stringify(packageJson, null, 2) : 'No encontrado'}
+requirements.txt: ${requirementsTxt || 'No encontrado'}
+
+Proporciona:
+1. Tipo de proyecto (Node.js, Python, HTML estático, etc.)
+2. Dependencias principales detectadas
+3. Comando de instalación recomendado
+4. Comando de inicio recomendado (start command)
+5. Puerto por defecto (si es una app web)
+6. Puntos de atención para el despliegue
+
+Responde en formato JSON con claves: projectType, dependencies, installCommand, startCommand, defaultPort, notes.
+`;
+
+    const aiResult = await this.env.AI.run('@cf/mistral/mistral-7b-instruct-v0.1', {
+      prompt: analysisPrompt,
+    });
+    const aiText = String((aiResult as any).response || (aiResult as any).text || aiResult);
+
+    const repoId = crypto.randomUUID();
+    this.ctx.storage.sql.exec(
+      `INSERT OR REPLACE INTO github_repos (id, repo_url, owner, repo_name, branch, status, ai_analysis)
+       VALUES (?, ?, ?, ?, ?, 'analyzed', ?)`,
+      repoId, repoUrl, owner, repo, repoInfo.default_branch, aiText
+    );
+
+    let installScript = '';
+    try {
+      const cleaned = aiText.replace(/```json\n?/, '').replace(/\n?```/, '').trim();
+      const parsed = JSON.parse(cleaned);
+      installScript = parsed.installCommand || '';
+      this.ctx.storage.sql.exec(
+        `UPDATE github_repos SET install_script = ?, entry_point = ? WHERE id = ?`,
+        installScript, parsed.startCommand || '', repoId
+      );
+    } catch {
+      this.ctx.storage.sql.exec(
+        `UPDATE github_repos SET install_script = ? WHERE id = ?`,
+        aiText, repoId
+      );
+    }
+
+    this.ctx.storage.sql.exec(
+      `INSERT INTO ai_analysis (repo_id, analysis_type, result) VALUES (?, 'dependency_analysis', ?)`,
+      repoId, aiText
+    );
+
+    return {
+      repoId,
+      owner,
+      repo,
+      branch: repoInfo.default_branch,
+      status: 'analyzed',
+      analysis: aiText,
+      installScript,
+      entryPoint: '',
+    };
+  }
+
+  async generateInstallScript(repoUrl: string): Promise<string> {
+    const cursor = this.ctx.storage.sql.exec(
+      'SELECT install_script, ai_analysis FROM github_repos WHERE repo_url = ?',
+      repoUrl
+    );
+    const rows = cursor.toArray() as Array<{ install_script: string; ai_analysis: string }>;
+    if (rows.length > 0 && rows[0].install_script) {
+      return rows[0].install_script;
+    }
+    const analysis = await this.analyzeRepo(repoUrl);
+    return analysis.installScript;
+  }
+
+  async deployRepo(repoUrl: string): Promise<{ status: string; message: string }> {
+    const match = repoUrl.match(/github\.com[:/]([^\/]+)\/([^\/]+?)(?:\.git)?$/);
+    if (!match) throw new Error('URL de GitHub inválida');
+    const owner = match[1];
+    const repo = match[2];
+
+    let files: Array<{ path: string; content: string; type: string }> = [];
+    try {
+      const treeRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`
+      );
+      if (treeRes.ok) {
+        const treeData = await treeRes.json();
+        const fileEntries = (treeData.tree || []).filter((f: any) => f.type === 'blob').slice(0, 50);
+        for (const entry of fileEntries) {
+          try {
+            const rawRes = await fetch(
+              `https://raw.githubusercontent.com/${owner}/${repo}/main/${entry.path}`
+            );
+            if (rawRes.ok) {
+              const content = await rawRes.text();
+              files.push({
+                path: entry.path,
+                content: entry.path.match(/\.(png|jpg|gif|ico|woff|woff2|ttf|eot|svg)$/) ? '[binario]' : content,
+                type: entry.path.split('.').pop() || 'unknown',
+              });
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    const repoCursor = this.ctx.storage.sql.exec(
+      'SELECT id FROM github_repos WHERE repo_url = ?',
+      repoUrl
+    );
+    const repoRows = repoCursor.toArray() as Array<{ id: string }>;
+    const repoId = repoRows.length > 0 ? repoRows[0].id : crypto.randomUUID();
+
+    if (repoRows.length === 0) {
+      this.ctx.storage.sql.exec(
+        `INSERT OR REPLACE INTO github_repos (id, repo_url, owner, repo_name, branch, status)
+         VALUES (?, ?, ?, ?, 'main', 'deployed')`,
+        repoId, repoUrl, owner, repo
+      );
+    } else {
+      this.ctx.storage.sql.exec(
+        `UPDATE github_repos SET status = 'deployed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        repoId
+      );
+    }
+
+    for (const file of files) {
+      this.ctx.storage.sql.exec(
+        `INSERT INTO repo_files (repo_id, path, content, size, type) VALUES (?, ?, ?, ?, ?)`,
+        repoId, file.path, file.content, file.content.length, file.type
+      );
+    }
+
+    this.ctx.storage.sql.exec(
+      `UPDATE github_repos SET status = 'running' WHERE id = ?`,
+      repoId
+    );
+
+    return {
+      status: 'running',
+      message: `Repositorio ${owner}/${repo} desplegado en Durable Object. ${files.length} archivos indexados.`,
+    };
+  }
+
+  async getRepoStatus(repoUrl: string): Promise<any> {
+    const cursor = this.ctx.storage.sql.exec(
+      'SELECT * FROM github_repos WHERE repo_url = ?',
+      repoUrl
+    );
+    const rows = cursor.toArray() as any[];
+    if (rows.length === 0) return { status: 'not_found' };
+    return rows[0];
+  }
+
+  async getRepoFiles(repoUrl: string): Promise<any[]> {
+    const repoCursor = this.ctx.storage.sql.exec(
+      'SELECT id FROM github_repos WHERE repo_url = ?',
+      repoUrl
+    );
+    const repoRows = repoCursor.toArray() as Array<{ id: string }>;
+    if (repoRows.length === 0) return [];
+    const fileCursor = this.ctx.storage.sql.exec(
+      'SELECT path, type, size FROM repo_files WHERE repo_id = ? ORDER BY path',
+      repoRows[0].id
+    );
+    return fileCursor.toArray() as any[];
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/v1/analyze' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { repo_url?: string };
+        if (!body.repo_url) {
+          return Response.json({ ok: false, error: 'repo_url required' }, { status: 400 });
+        }
+        const result = await this.analyzeRepo(body.repo_url);
+        return Response.json({ ok: true, result });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/v1/install-script' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { repo_url?: string };
+        if (!body.repo_url) {
+          return Response.json({ ok: false, error: 'repo_url required' }, { status: 400 });
+        }
+        const script = await this.generateInstallScript(body.repo_url);
+        return Response.json({ ok: true, installScript: script });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/v1/deploy' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { repo_url?: string };
+        if (!body.repo_url) {
+          return Response.json({ ok: false, error: 'repo_url required' }, { status: 400 });
+        }
+        const result = await this.deployRepo(body.repo_url);
+        return Response.json({ ok: true, result });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/v1/status' && request.method === 'GET') {
+      const repoUrl = url.searchParams.get('repo_url');
+      if (!repoUrl) {
+        return Response.json({ ok: false, error: 'repo_url required' }, { status: 400 });
+      }
+      const status = await this.getRepoStatus(repoUrl);
+      return Response.json({ ok: true, status });
+    }
+
+    if (url.pathname === '/v1/files' && request.method === 'GET') {
+      const repoUrl = url.searchParams.get('repo_url');
+      if (!repoUrl) {
+        return Response.json({ ok: false, error: 'repo_url required' }, { status: 400 });
+      }
+      const files = await this.getRepoFiles(repoUrl);
+      return Response.json({ ok: true, files });
+    }
+
+    if (url.pathname === '/v1/state' && request.method === 'GET') {
+      const cursor = this.ctx.storage.sql.exec('SELECT key, value FROM state');
+      const items: Record<string, string> = {};
+      for (const row of cursor) {
+        const v = row.value as { key: string; value: string };
+        items[v.key] = v.value;
+      }
+      return Response.json({ ok: true, state: items });
+    }
+
+    if (url.pathname === '/mcp' && request.method === 'POST') {
+      try {
+        const body = (await request.json()) as { jsonrpc?: string; method?: string; params?: any; id?: any };
+        if (body.method === 'initialize') {
+          return Response.json({
+            jsonrpc: '2.0', id: body.id,
+            result: { protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'artefactool-github-virtualizer', version: '1.0.0' } },
+          });
+        }
+        if (body.method === 'tools/list') {
+          const cursor = this.ctx.storage.sql.exec('SELECT name, description, input_schema FROM mcp_tools');
+          const rows = cursor.toArray() as Array<{ name: string; description: string; input_schema: string }>;
+          const tools = rows.map((v) => ({
+            name: v.name,
+            description: v.description,
+            inputSchema: JSON.parse(v.input_schema),
+          }));
+          return Response.json({ jsonrpc: '2.0', id: body.id, result: { tools } });
+        }
+        if (body.method === 'tools/call') {
+          const name = body.params?.name;
+          const args = body.params?.arguments ?? {};
+          if (name === 'analyzeRepo') {
+            const result = await this.analyzeRepo(args.repo_url);
+            return Response.json({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: JSON.stringify(result) }] } });
+          }
+          if (name === 'generateInstallScript') {
+            const script = await this.generateInstallScript(args.repo_url);
+            return Response.json({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: script }] } });
+          }
+          if (name === 'deployRepo') {
+            const result = await this.deployRepo(args.repo_url);
+            return Response.json({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: JSON.stringify(result) }] } });
+          }
+          if (name === 'getRepoStatus') {
+            const status = await this.getRepoStatus(args.repo_url);
+            return Response.json({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: JSON.stringify(status) }] } });
+          }
+          if (name === 'getRepoFiles') {
+            const files = await this.getRepoFiles(args.repo_url);
+            return Response.json({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: JSON.stringify(files) }] } });
+          }
+          return Response.json({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'Method not found' } });
+        }
+        return Response.json({ jsonrpc: '2.0', id: body.id, error: { code: -32600, message: 'Invalid Request' } });
+      } catch (e) {
+        return Response.json({ ok: false, error: String(e) }, { status: 500 });
+      }
+    }
+
+    if (url.pathname === '/' || url.pathname === '/app') {
+      const repoUrl = url.searchParams.get('repo_url');
+      if (!repoUrl) {
+        return new Response('<h1>GitHub Virtualizer</h1><p>Especifica ?repo_url=https://github.com/owner/repo</p>', {
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      const status = await this.getRepoStatus(repoUrl);
+      const files = await this.getRepoFiles(repoUrl);
+      const html = `
+<!DOCTYPE html>
+<html>
+<head><title>Repo Virtualizado: ${repoUrl}</title></head>
+<body>
+<h1>📦 ${repoUrl}</h1>
+<p>Estado: ${status.status || 'desconocido'}</p>
+<h2>Archivos (${files.length})</h2>
+<ul>
+${files.map((f: any) => `<li><code>${f.path}</code> (${f.type}, ${f.size} bytes)</li>`).join('')}
+</ul>
+<p><a href="/mcp">Ver herramientas MCP</a></p>
+</body>
+</html>`;
+      return new Response(html, { headers: { 'Content-Type': 'text/html' } });
     }
 
     return new Response('not found', { status: 404 });
@@ -948,6 +1447,27 @@ export default {
       const stub = env.VISUAL_WEB_COPILOT.get(copilotId);
       const reqUrl = new URL(request.url);
       reqUrl.pathname = reqUrl.pathname.slice('/visual-copilot'.length);
+      const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
+      const hdrs = new Headers(request.headers);
+      hdrs.delete('content-length');
+      if (body !== undefined) {
+        hdrs.set('content-length', String(new TextEncoder().encode(body).length));
+      }
+      const proxied = new Request(reqUrl.toString(), {
+        method: request.method,
+        headers: hdrs,
+        body: body !== undefined ? body : undefined,
+      });
+      return stub.fetch(proxied);
+    }
+
+    // /github-virtualizer/* → virtualizador inteligente de repositorios GitHub
+    if (url.pathname.startsWith('/github-virtualizer/')) {
+      const seg = url.pathname.split('/').filter(Boolean);
+      const artefactoolName = seg[1] ?? 'default';
+      const stub = env.GITHUB_VIRTUALIZER.get(env.GITHUB_VIRTUALIZER.idFromName(artefactoolName));
+      const reqUrl = new URL(request.url);
+      reqUrl.pathname = '/' + seg.slice(2).join('/') || '/';
       const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
       const hdrs = new Headers(request.headers);
       hdrs.delete('content-length');
