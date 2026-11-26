@@ -117,6 +117,20 @@
   .right-item .badge.active{background:#dbeafe;color:#1e40af}
   .divider{height:1px;background:var(--border);margin:16px 0}
 
+  /* Dropdown de Durable Objects instalados (barra derecha abajo) */
+  .do-dropdown{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-top:auto;margin-bottom:0}
+  .do-dropdown .do-header{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+  .do-dropdown .do-header h4{font-size:13px;font-weight:700;color:var(--ink);margin:0}
+  .do-dropdown .do-toggle{font-size:12px;color:var(--muted)}
+  .do-dropdown .do-list{padding:0 16px 16px;max-height:300px;overflow-y:auto}
+  .do-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10;transition:background .15s}
+  .do-item:hover{background:var(--surface)}
+  .do-item .icon{flex:none;width:28px;height:28px;border-radius:7px;background:#f1f5f9;border:1px solid var(--border);display:grid;place-items:center;font-size:14px}
+  .do-item .info{flex:1}
+  .do-item .name{font-size:13px;font-weight:600;color:var(--ink);display:block}
+  .do-item .meta{font-size:11px;color:var(--muted);display:block}
+  .do-item .badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;background:#dcfce7;color:#166534;margin-left:auto}
+
   /* Footer */
   footer{border-top:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px}
   .settings-btn{width:32px;height:32px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:14px}
@@ -201,18 +215,19 @@
             </div>
           </div>
 
-          <div class="artifact-card">
-            <div class="artifact-icon">🛡️</div>
-            <div class="artifact-info">
-              <h3>EdgeGuard Lite // Bot Filter</h3>
-              <p>https://edgeguard.tools.workers.dev/v1/in...</p>
-            </div>
-            <span class="artifact-badge">SQLITE DO</span>
-            <div class="artifact-actions">
-              <button class="btn btn-ghost btn-sm">Abir Visor</button>
-              <button class="btn btn-primary btn-sm">Desplegar</button>
-            </div>
+        <!-- Ficha de artefactool seleccionada (debajo del chat) -->
+        <div id="artifact-panel" class="artifact-card hidden">
+          <div class="artifact-icon" id="artifact-icon">📦</div>
+          <div class="artifact-info">
+            <h3 id="artifact-name">Artefactool</h3>
+            <p id="artifact-desc" style="font-size:12px;color:var(--muted)">Sin descripción</p>
           </div>
+          <span id="artifact-badge" class="artifact-badge">SQLITE DO</span>
+          <div class="artifact-actions">
+            <button class="btn btn-ghost btn-sm" id="artifact-open-visor">Abir Visor</button>
+            <button class="btn btn-primary btn-sm" id="artifact-open-app">Abrir App</button>
+          </div>
+        </div>
         </div>
 
         <!-- Vista: Repo Virtualizer -->
@@ -282,10 +297,14 @@
         </div>
         <div class="divider"></div>
         <div class="nav-item kicker">Durable Objects / SQLite</div>
-        <div class="right-item">
-          <div style="font-size:12px;color:var(--ink)">2 instancias</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">4.2 KB usados</div>
-          <span class="badge-small">SYNC</span>
+        <div class="right-item do-dropdown">
+          <div class="do-header" onclick="toggleDoDropdown()">
+            <h4>Durable Objects instalados</h4>
+            <span class="do-toggle" id="do-toggle">▼</span>
+          </div>
+          <div class="do-list" id="do-list" style="display:none">
+            <div id="do-items">Cargando…</div>
+          </div>
         </div>
       </div>
     </aside>
@@ -307,7 +326,15 @@
       const mainTitle = document.getElementById('main-title');
       const mainSubtitle = document.getElementById('main-subtitle');
       const artefactoolsList = document.getElementById('artefactools-list');
-
+      const artifactPanel = document.getElementById('artifact-panel');
+      const artifactIcon = document.getElementById('artifact-icon');
+      const artifactName = document.getElementById('artifact-name');
+      const artifactDesc = document.getElementById('artifact-desc');
+      const artifactBadge = document.getElementById('artifact-badge');
+      const artifactOpenVisor = document.getElementById('artifact-open-visor');
+      const artifactOpenApp = document.getElementById('artifact-open-app');
+      const doItems = document.getElementById('do-items');
+      let selectedArtefactool = null;
       // ---------- Navegación de vistas ----------
       function showView(name){
         viewChat.classList.add('hidden');
@@ -416,12 +443,69 @@
         }catch(e){
           artefactoolsList.innerHTML = '<div style="font-size:12px;color:var(--danger);padding:8px 0">Error cargando artefactools.</div>';
         }
+        loadDoList();
       }
 
       async function openArtefactool(name){
-        const r = confirm('¿Abrir la aplicación virtualizada "' + name + '" en una nueva pestaña?');
-        if(r){
-          window.open(base + '/agents/' + encodeURIComponent(name) + '/v1/state', '_blank');
+        selectedArtefactool = name;
+        try{
+          const r = await fetch(base + '/agents/' + encodeURIComponent(name) + '/v1/state');
+          const d = await r.json();
+          const state = d.state || {};
+          artifactPanel.classList.remove('hidden');
+          artifactName.textContent = name;
+          artifactDesc.textContent = state.description || 'Artefactool desplegada desde ' + name;
+          artifactIcon.textContent = state.icon || '📦';
+          artifactBadge.textContent = state.type || 'SQLITE DO';
+          artifactOpenApp.onclick = function(){
+            window.open(base + '/agents/' + encodeURIComponent(name) + '/v1/state', '_blank');
+          };
+          artifactOpenVisor.onclick = function(){
+            window.open(base + '/agents/' + encodeURIComponent(name) + '/mcp', '_blank');
+          };
+        }catch(e){
+          artifactDesc.textContent = 'Error cargando detalles: ' + e.message;
+        }
+      }
+
+      // ---------- DO Dropdown (sidebar derecha) ----------
+      async function loadDoList(){
+        try{
+          const r = await fetch(base + '/api/artefactools');
+          const d = await r.json();
+          const items = d.items || [];
+          doItems.innerHTML = '';
+          if(items.length===0){
+            doItems.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px">Sin Durable Objects instalados aún.</div>';
+            return;
+          }
+          const icons = {repo:'📦',vault:'🔐',harness:'⚡',copilot:'👁️',session:'💬'};
+          items.forEach(a=>{
+            const key = a.name.split('-')[0];
+            const icon = icons[key] || '📦';
+            const el = document.createElement('div');
+            el.className = 'do-item';
+            el.innerHTML = '<div class="icon">'+icon+'</div><div class="info"><div class="name">'+escapeHtml(a.name)+'</div><div class="meta">DO · '+a.instance_id.slice(0,8)+'…</div></div><span class="badge">activo</span>';
+            el.onclick = function(){
+              openArtefactool(a.name);
+            };
+            doItems.appendChild(el);
+          });
+        }catch(e){
+          doItems.innerHTML = '<div style="font-size:12px;color:var(--danger);padding:8px">Error cargando Durable Objects.</div>';
+        }
+      }
+
+      function toggleDoDropdown(){
+        const list = document.getElementById('do-list');
+        const toggle = document.getElementById('do-toggle');
+        if(list.style.display === 'none'){
+          list.style.display = 'block';
+          toggle.textContent = '▲';
+          loadDoList();
+        } else {
+          list.style.display = 'none';
+          toggle.textContent = '▼';
         }
       }
 
